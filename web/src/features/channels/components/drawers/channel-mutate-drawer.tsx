@@ -205,7 +205,7 @@ import {
   assessBaseUrlTrust,
   nextTaskPluginBaseUrl,
 } from '../../lib/task-plugin-base-url'
-import type { Channel } from '../../types'
+import type { Channel, UpstreamModelInfo } from '../../types'
 import { ChannelPluginExtensions } from '../channel-plugin-extensions'
 import { ChannelQuickOptions } from '../channel-quick-options'
 import { ChannelTypeLogo } from '../channel-type-badge'
@@ -400,7 +400,7 @@ function SubHeading(props: {
 }
 
 /** Stable empty list so memoized consumers do not re-run on every render. */
-const NO_UPSTREAM_MODELS: string[] = []
+const NO_UPSTREAM_MODELS: UpstreamModelInfo[] = []
 
 export function ChannelMutateDrawer({
   open,

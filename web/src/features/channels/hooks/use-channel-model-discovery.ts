@@ -21,10 +21,11 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { createServerError } from '@/lib/server-error-message'
 
 import { fetchModels, fetchUpstreamModels } from '../api'
+import type { UpstreamModelInfo } from '../types'
 
 type DiscoveryState = {
   status: 'idle' | 'loading' | 'success' | 'error' | 'stale'
-  models: string[]
+  models: (UpstreamModelInfo | string)[]
   error?: unknown
 }
 

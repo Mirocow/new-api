@@ -118,6 +118,7 @@ function ModelCategory(props: ModelCategoryProps) {
               model={model}
               id={id}
               selected={selected.has(model.id)}
+              selectedModels={props.selected}
               redirectOnly={props.redirectOnly}
               onChange={props.onChange}
               onRedirectModel={props.onRedirectModel}
@@ -134,6 +135,7 @@ function ModelCard({
   model,
   id,
   selected,
+  selectedModels,
   redirectOnly,
   onChange,
   onRedirectModel,
@@ -142,6 +144,7 @@ function ModelCard({
   model: UpstreamModelInfo
   id: string
   selected: boolean
+  selectedModels: string[]
   redirectOnly: Set<string>
   onChange: (models: string[]) => void
   onRedirectModel?: (model: string) => void
@@ -210,8 +213,8 @@ function ModelCard({
         onCheckedChange={(checked) =>
           onChange(
             checked
-              ? [...(onChange as any).prevSelected?.filter((m: string) => m !== model.id) || [], model.id]
-              : (onChange as any).prevSelected?.filter((item: string) => item !== model.id) || []
+              ? [...new Set([...selectedModels, model.id])]
+              : selectedModels.filter((item) => item !== model.id)
           )
         }
       />
@@ -289,7 +292,7 @@ function ModelCard({
 type ChangeTab = 'new' | 'existing' | 'removed'
 
 type UpstreamModelSelectionProps = {
-  models: UpstreamModelInfo[]
+  models: (UpstreamModelInfo | string)[]
   selected: string[]
   onChange: (models: string[]) => void
   existingModels: string[]
@@ -303,8 +306,24 @@ type UpstreamModelSelectionProps = {
   aliases?: Record<string, string>
 }
 
+/** Normalize legacy string entries and objects into UpstreamModelInfo. */
+function toModelInfos(models: (UpstreamModelInfo | string)[]): UpstreamModelInfo[] {
+  const result: UpstreamModelInfo[] = []
+  for (const entry of models) {
+    if (typeof entry === 'string') {
+      result.push({ id: entry })
+      continue
+    }
+    if (entry && typeof entry === 'object' && typeof entry.id === 'string') {
+      result.push(entry as UpstreamModelInfo)
+    }
+  }
+  return result
+}
+
 export function UpstreamModelSelection(props: UpstreamModelSelectionProps) {
   const { t } = useTranslation()
+  const models = toModelInfos(props.models)
   const [search, setSearch] = useState('')
   const [candidateModels, setCandidateModels] = useState(props.selected)
   const candidateSet = new Set(candidateModels)
@@ -318,14 +337,14 @@ export function UpstreamModelSelection(props: UpstreamModelSelectionProps) {
       props.redirectModels ?? []
     )
     const modelIds = [
-      ...new Set(props.models.map(m => normalizeModelName(m.id)).filter(Boolean)),
+      ...new Set(models.map(m => normalizeModelName(m.id)).filter(Boolean)),
     ]
     const modelSet = new Set(modelIds)
     const sourceSet = new Set(
       (props.redirectSourceModels ?? []).map(normalizeModelName)
     )
     const keyword = search.toLowerCase().trim()
-    const filtered = props.models.filter((model) =>
+    const filtered = models.filter((model) =>
       model.id.toLowerCase().includes(keyword) ||
       model.display_name?.toLowerCase().includes(keyword) ||
       model.description?.toLowerCase().includes(keyword)
@@ -338,12 +357,14 @@ export function UpstreamModelSelection(props: UpstreamModelSelectionProps) {
     )
     const removed = [
       ...new Set(candidateModels.map(normalizeModelName).filter(Boolean)),
-    ].filter(
-      (modelId) =>
-        !modelSet.has(modelId) &&
-        !sourceSet.has(modelId) &&
-        modelId.toLowerCase().includes(keyword)
-    )
+    ]
+      .filter(
+        (modelId) =>
+          !modelSet.has(modelId) &&
+          !sourceSet.has(modelId) &&
+          modelId.toLowerCase().includes(keyword)
+      )
+      .map((modelId) => ({ id: modelId }))
     return {
       filtered,
       existing,
@@ -353,7 +374,7 @@ export function UpstreamModelSelection(props: UpstreamModelSelectionProps) {
     }
   }, [
     props.existingModels,
-    props.models,
+    models,
     props.redirectModels,
     props.redirectSourceModels,
     candidateModels,
@@ -370,22 +391,16 @@ export function UpstreamModelSelection(props: UpstreamModelSelectionProps) {
   if (counts.new) defaultTab = 'new'
   else if (counts.removed) defaultTab = 'removed'
   const [tabState, setTabState] = useState({
-    models: props.models.map(m => m.id).join(','),
+    models: models.map(m => m.id).join(','),
     tab: defaultTab,
   })
-  if (tabState.models !== props.models.map(m => m.id).join(',')) {
-    setTabState({ models: props.models.map(m => m.id).join(','), tab: defaultTab })
+  if (tabState.models !== models.map(m => m.id).join(',')) {
+    setTabState({ models: models.map(m => m.id).join(','), tab: defaultTab })
   }
   let fallbackTab: ChangeTab = 'new'
   if (counts.existing) fallbackTab = 'existing'
   else if (counts.removed) fallbackTab = 'removed'
   const activeTab = counts[tabState.tab] > 0 ? tabState.tab : fallbackTab
-
-  // Wrap onChange to track previous selection for ModelCard
-  const handleChange = (models: string[]) => {
-    (handleChange as any).prevSelected = props.selected
-    props.onChange(models)
-  }
 
   return (
     <div className='space-y-3'>
@@ -399,7 +414,7 @@ export function UpstreamModelSelection(props: UpstreamModelSelectionProps) {
         <div className='flex items-center justify-between gap-2'>
           <span className='text-muted-foreground text-xs'>
             {props.summaryText ??
-              t('Fetched {{count}} models', { count: props.models.length })}
+              t('Fetched {{count}} models', { count: models.length })}
           </span>
           {search.trim().length > 0 && (
             <Button
@@ -408,7 +423,7 @@ export function UpstreamModelSelection(props: UpstreamModelSelectionProps) {
               size='sm'
               disabled={!categorized.filtered.length}
               onClick={() =>
-                handleChange([
+                props.onChange([
                   ...new Set([...props.selected, ...categorized.filtered.map(m => m.id)]),
                 ])
               }
@@ -427,7 +442,7 @@ export function UpstreamModelSelection(props: UpstreamModelSelectionProps) {
               value === 'existing' ||
               value === 'removed'
             ) {
-              setTabState({ models: props.models.map(m => m.id).join(','), tab: value })
+              setTabState({ models: models.map(m => m.id).join(','), tab: value })
             }
           }}
         >
@@ -462,7 +477,7 @@ export function UpstreamModelSelection(props: UpstreamModelSelectionProps) {
                 models={models}
                 selected={props.selected}
                 redirectOnly={categorized.redirectOnly}
-                onChange={handleChange}
+                onChange={props.onChange}
                 onRedirectModel={props.onRedirectModel}
                 aliases={props.aliases}
               />
@@ -480,7 +495,7 @@ export function UpstreamModelSelection(props: UpstreamModelSelectionProps) {
                   models={models}
                   selected={props.selected}
                   redirectOnly={categorized.redirectOnly}
-                  onChange={handleChange}
+                  onChange={props.onChange}
                   onRedirectModel={props.onRedirectModel}
                   aliases={props.aliases}
                 />
@@ -502,7 +517,7 @@ export function UpstreamModelSelection(props: UpstreamModelSelectionProps) {
                 models={categorized.removed}
                 selected={props.selected}
                 redirectOnly={categorized.redirectOnly}
-                onChange={handleChange}
+                onChange={props.onChange}
                 onRedirectModel={props.onRedirectModel}
                 aliases={props.aliases}
               />
@@ -518,7 +533,7 @@ export function UpstreamModelSelection(props: UpstreamModelSelectionProps) {
               models={models}
               selected={props.selected}
               redirectOnly={categorized.redirectOnly}
-              onChange={handleChange}
+              onChange={props.onChange}
               onRedirectModel={props.onRedirectModel}
               aliases={props.aliases}
             />

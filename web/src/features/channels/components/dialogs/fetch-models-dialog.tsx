@@ -36,8 +36,18 @@ import { useChannels } from '../channels-provider'
 import { UpstreamModelSelection } from '../upstream-model-selection'
 import type { UpstreamModelInfo } from '../../types'
 
-function normalizeModelNameList(models: readonly UpstreamModelInfo[]): string[] {
-  return [...new Set(models.map((m) => normalizeModelName(m.id)).filter(Boolean))]
+function normalizeModelNameList(
+  models: readonly (UpstreamModelInfo | string)[]
+): string[] {
+  return [
+    ...new Set(
+      models
+        .map((entry) =>
+          normalizeModelName(typeof entry === 'string' ? entry : entry?.id)
+        )
+        .filter(Boolean)
+    ),
+  ]
 }
 
 type FetchModelsDialogBaseProps = {
