@@ -214,10 +214,37 @@ export interface ChannelBalanceResponse {
   raw_response?: string
 }
 
+export interface UpstreamModelInfo {
+  id: string
+  object?: string
+  created?: number
+  owned_by?: string
+  description?: string
+  display_name?: string
+  max_input_tokens?: number
+  max_output_tokens?: number
+  supported_methods?: string[]
+  metadata?: Record<string, unknown>
+  provider_specific?: Record<string, unknown>
+  size?: number
+  digest?: string
+  modified_at?: string
+  details?: ModelDetails
+}
+
+export interface ModelDetails {
+  parent_model?: string
+  format?: string
+  family?: string
+  families?: string[]
+  parameter_size?: string
+  quantization_level?: string
+}
+
 export interface FetchModelsResponse {
   success: boolean
   message?: string
-  data?: string[]
+  data?: UpstreamModelInfo[]
 }
 
 export interface CopyChannelResponse {

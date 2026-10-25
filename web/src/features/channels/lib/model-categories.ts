@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import { resolveModelProvider } from '@/lib/model-provider'
+import type { UpstreamModelInfo } from '../types'
 
 export function getModelCategory(modelName: string): string {
   return resolveModelProvider(modelName)?.name ?? 'Other'
@@ -30,6 +31,20 @@ export function categorizeModels(
 
   for (const model of models) {
     const category = getModelCategory(model)
+    categories[category] ??= []
+    categories[category].push(model)
+  }
+
+  return categories
+}
+
+export function categorizeModelsWithInfo(
+  models: readonly UpstreamModelInfo[]
+): Record<string, UpstreamModelInfo[]> {
+  const categories: Record<string, UpstreamModelInfo[]> = {}
+
+  for (const model of models) {
+    const category = getModelCategory(model.id)
     categories[category] ??= []
     categories[category].push(model)
   }

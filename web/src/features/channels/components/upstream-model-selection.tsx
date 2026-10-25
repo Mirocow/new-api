@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { ArrowRightLeft, ChevronDown, Info } from 'lucide-react'
+import { ArrowRightLeft, ChevronDown, Info, FileText, Database, Cpu, Zap } from 'lucide-react'
 import { useId, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -38,13 +38,15 @@ import {
 } from '@/components/ui/tooltip'
 
 import {
-  categorizeModels,
+  categorizeModelsWithInfo,
   categorizeModelsWithRedirect,
   normalizeModelName,
 } from '../lib'
+import type { UpstreamModelInfo } from '../../types'
 
-function sortedModelCategories(models: string[]): [string, string[]][] {
-  return Object.entries(categorizeModels(models)).sort(([a], [b]) => {
+function sortedModelCategories(models: UpstreamModelInfo[]): [string, UpstreamModelInfo[]][] {
+  const categorized = categorizeModelsWithInfo(models)
+  return Object.entries(categorized).sort(([a], [b]) => {
     if (a === 'Other') return 1
     if (b === 'Other') return -1
     return a.localeCompare(b, undefined, { sensitivity: 'base' })
@@ -53,7 +55,7 @@ function sortedModelCategories(models: string[]): [string, string[]][] {
 
 type ModelCategoryProps = {
   name: string
-  models: string[]
+  models: UpstreamModelInfo[]
   selected: string[]
   redirectOnly: Set<string>
   onChange: (models: string[]) => void
@@ -67,7 +69,7 @@ function ModelCategory(props: ModelCategoryProps) {
   const id = useId()
   const selected = new Set(props.selected)
   const selectedCount = props.models.filter((model) =>
-    selected.has(model)
+    selected.has(model.id)
   ).length
   const allSelected = selectedCount === props.models.length
 
@@ -82,10 +84,10 @@ function ModelCategory(props: ModelCategoryProps) {
           indeterminate={selectedCount > 0 && !allSelected}
           onCheckedChange={(checked) => {
             if (checked) {
-              props.onChange([...new Set([...props.selected, ...props.models])])
+              props.onChange([...new Set([...props.selected, ...props.models.map(m => m.id)])])
             } else {
               props.onChange(
-                props.selected.filter((model) => !props.models.includes(model))
+                props.selected.filter((model) => !props.models.some(m => m.id === model))
               )
             }
           }}
@@ -111,65 +113,16 @@ function ModelCategory(props: ModelCategoryProps) {
       <CollapsibleContent className='border-t px-3 py-2'>
         <div className='grid gap-2 @lg:grid-cols-2'>
           {props.models.map((model) => (
-            <div key={model} className='flex min-w-0 items-start gap-2'>
-              <Checkbox
-                id={`${id}-${model}`}
-                className='mt-0.5 shrink-0'
-                checked={selected.has(model)}
-                onCheckedChange={(checked) =>
-                  props.onChange(
-                    checked
-                      ? [...props.selected, model]
-                      : props.selected.filter((item) => item !== model)
-                  )
-                }
-              />
-              <Label
-                htmlFor={`${id}-${model}`}
-                className='min-w-0 cursor-pointer text-sm font-normal break-all'
-              >
-                {model}
-              </Label>
-              {props.aliases?.[model] && (
-                <Badge
-                  variant='outline'
-                  aria-label={t('Published as {{model}}', {
-                    model: props.aliases[model],
-                  })}
-                  title={t('Published as {{model}}', {
-                    model: props.aliases[model],
-                  })}
-                  className='max-w-40 shrink-0 truncate font-normal'
-                >
-                  {props.aliases[model]}
-                </Badge>
-              )}
-              {props.redirectOnly.has(normalizeModelName(model)) && (
-                <Tooltip>
-                  <TooltipTrigger
-                    render={
-                      <Info className='size-3.5 shrink-0 text-amber-500' />
-                    }
-                  />
-                  <TooltipContent>
-                    {t('From model redirect, not yet added to models list')}
-                  </TooltipContent>
-                </Tooltip>
-              )}
-              {props.onRedirectModel && (
-                <Button
-                  type='button'
-                  variant='ghost'
-                  size='icon-xs'
-                  className='text-muted-foreground hover:text-foreground -my-1 ml-auto shrink-0'
-                  aria-label={t('Redirect {{model}}', { model })}
-                  title={t('Set up redirect')}
-                  onClick={() => props.onRedirectModel?.(model)}
-                >
-                  <ArrowRightLeft aria-hidden='true' />
-                </Button>
-              )}
-            </div>
+            <ModelCard
+              key={model.id}
+              model={model}
+              id={id}
+              selected={selected.has(model.id)}
+              redirectOnly={props.redirectOnly}
+              onChange={props.onChange}
+              onRedirectModel={props.onRedirectModel}
+              aliases={props.aliases}
+            />
           ))}
         </div>
       </CollapsibleContent>
@@ -177,10 +130,166 @@ function ModelCategory(props: ModelCategoryProps) {
   )
 }
 
+function ModelCard({
+  model,
+  id,
+  selected,
+  redirectOnly,
+  onChange,
+  onRedirectModel,
+  aliases,
+}: {
+  model: UpstreamModelInfo
+  id: string
+  selected: boolean
+  redirectOnly: Set<string>
+  onChange: (models: string[]) => void
+  onRedirectModel?: (model: string) => void
+  aliases?: Record<string, string>
+}) {
+  const { t } = useTranslation()
+  const normalizedName = normalizeModelName(model.id)
+  const isRedirectOnly = redirectOnly.has(normalizedName)
+
+  const badges: React.ReactNode[] = []
+  
+  // Provider-specific badges
+  if (model.max_input_tokens || model.max_output_tokens) {
+    badges.push(
+      <Badge key="tokens" variant="secondary" className="gap-1">
+        <Database className="h-2.5 w-2.5" />
+        <span className="text-xs">
+          {model.max_input_tokens ? `${model.max_input_tokens.toLocaleString()} in` : '—'}
+          {model.max_output_tokens ? ` / ${model.max_output_tokens.toLocaleString()} out` : ''}
+        </span>
+      </Badge>
+    )
+  }
+
+  if (model.supported_methods?.length) {
+    badges.push(
+      <Badge key="methods" variant="secondary" className="gap-1">
+        <Zap className="h-2.5 w-2.5" />
+        <span className="text-xs">{model.supported_methods.join(', ')}</span>
+      </Badge>
+    )
+  }
+
+  if (model.details?.parameter_size) {
+    badges.push(
+      <Badge key="params" variant="secondary" className="gap-1">
+        <Cpu className="h-2.5 w-2.5" />
+        <span className="text-xs">{model.details.parameter_size}</span>
+      </Badge>
+    )
+  }
+
+  if (model.details?.quantization_level) {
+    badges.push(
+      <Badge key="quant" variant="secondary" className="gap-1">
+        <FileText className="h-2.5 w-2.5" />
+        <span className="text-xs">{model.details.quantization_level}</span>
+      </Badge>
+    )
+  }
+
+  if (model.details?.family) {
+    badges.push(
+      <Badge key="family" variant="outline" className="gap-1">
+        <span className="text-xs">{model.details.family}</span>
+      </Badge>
+    )
+  }
+
+  return (
+    <div className='flex min-w-0 items-start gap-2'>
+      <Checkbox
+        id={`${id}-${model.id}`}
+        className='mt-0.5 shrink-0'
+        checked={selected}
+        onCheckedChange={(checked) =>
+          onChange(
+            checked
+              ? [...(onChange as any).prevSelected?.filter((m: string) => m !== model.id) || [], model.id]
+              : (onChange as any).prevSelected?.filter((item: string) => item !== model.id) || []
+          )
+        }
+      />
+      <div className="flex-1 min-w-0">
+        <div className="flex items-start gap-2">
+          <Label
+            htmlFor={`${id}-${model.id}`}
+            className='min-w-0 cursor-pointer text-sm font-medium break-all'
+          >
+            {model.display_name || model.id}
+          </Label>
+          {model.display_name && model.display_name !== model.id && (
+            <span className='text-muted-foreground text-xs shrink-0 font-mono'>
+              {model.id}
+            </span>
+          )}
+        </div>
+        
+        {model.description && (
+          <p className='text-muted-foreground text-xs mt-1 line-clamp-2'>
+            {model.description}
+          </p>
+        )}
+
+        <div className='flex flex-wrap gap-1.5 mt-2'>
+          {badges}
+        </div>
+
+        <div className='flex items-center gap-2 mt-2'>
+          {aliases?.[model.id] && (
+            <Badge
+              variant='outline'
+              aria-label={t('Published as {{model}}', {
+                model: aliases[model.id],
+              })}
+              title={t('Published as {{model}}', {
+                model: aliases[model.id],
+              })}
+              className='max-w-40 shrink-0 truncate font-normal'
+            >
+              {aliases[model.id]}
+            </Badge>
+          )}
+          {isRedirectOnly && (
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Info className='size-3.5 shrink-0 text-amber-500' />
+                }
+              />
+              <TooltipContent>
+                {t('From model redirect, not yet added to models list')}
+              </TooltipContent>
+            </Tooltip>
+          )}
+          {onRedirectModel && (
+            <Button
+              type='button'
+              variant='ghost'
+              size='icon-xs'
+              className='text-muted-foreground hover:text-foreground -my-1 ml-auto shrink-0'
+              aria-label={t('Redirect {{model}}', { model: model.id })}
+              title={t('Set up redirect')}
+              onClick={() => onRedirectModel?.(model.id)}
+            >
+              <ArrowRightLeft aria-hidden='true' />
+            </Button>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 type ChangeTab = 'new' | 'existing' | 'removed'
 
 type UpstreamModelSelectionProps = {
-  models: string[]
+  models: UpstreamModelInfo[]
   selected: string[]
   onChange: (models: string[]) => void
   existingModels: string[]
@@ -197,41 +306,43 @@ type UpstreamModelSelectionProps = {
 export function UpstreamModelSelection(props: UpstreamModelSelectionProps) {
   const { t } = useTranslation()
   const [search, setSearch] = useState('')
-  // Keep models seen in this picker session available even after deselection.
   const [candidateModels, setCandidateModels] = useState(props.selected)
   const candidateSet = new Set(candidateModels)
   if (props.selected.some((model) => !candidateSet.has(model))) {
     setCandidateModels([...new Set([...candidateModels, ...props.selected])])
   }
+
   const categorized = useMemo(() => {
     const classification = categorizeModelsWithRedirect(
       props.existingModels,
       props.redirectModels ?? []
     )
-    const models = [
-      ...new Set(props.models.map(normalizeModelName).filter(Boolean)),
+    const modelIds = [
+      ...new Set(props.models.map(m => normalizeModelName(m.id)).filter(Boolean)),
     ]
-    const modelSet = new Set(models)
+    const modelSet = new Set(modelIds)
     const sourceSet = new Set(
       (props.redirectSourceModels ?? []).map(normalizeModelName)
     )
     const keyword = search.toLowerCase().trim()
-    const filtered = models.filter((model) =>
-      model.toLowerCase().includes(keyword)
+    const filtered = props.models.filter((model) =>
+      model.id.toLowerCase().includes(keyword) ||
+      model.display_name?.toLowerCase().includes(keyword) ||
+      model.description?.toLowerCase().includes(keyword)
     )
     const existing = filtered.filter((model) =>
-      classification.classificationSet.has(model)
+      classification.classificationSet.has(normalizeModelName(model.id))
     )
     const added = filtered.filter(
-      (model) => !classification.classificationSet.has(model)
+      (model) => !classification.classificationSet.has(normalizeModelName(model.id))
     )
     const removed = [
       ...new Set(candidateModels.map(normalizeModelName).filter(Boolean)),
     ].filter(
-      (model) =>
-        !modelSet.has(model) &&
-        !sourceSet.has(model) &&
-        model.toLowerCase().includes(keyword)
+      (modelId) =>
+        !modelSet.has(modelId) &&
+        !sourceSet.has(modelId) &&
+        modelId.toLowerCase().includes(keyword)
     )
     return {
       filtered,
@@ -258,20 +369,23 @@ export function UpstreamModelSelection(props: UpstreamModelSelectionProps) {
   let defaultTab: ChangeTab = 'existing'
   if (counts.new) defaultTab = 'new'
   else if (counts.removed) defaultTab = 'removed'
-  // A fresh upstream list resets the tab to the default; selection and alias
-  // edits keep the current tab so the user is not yanked elsewhere. Only an
-  // emptied tab falls through, preferring the rows the user was working on.
   const [tabState, setTabState] = useState({
-    models: props.models,
+    models: props.models.map(m => m.id).join(','),
     tab: defaultTab,
   })
-  if (tabState.models !== props.models) {
-    setTabState({ models: props.models, tab: defaultTab })
+  if (tabState.models !== props.models.map(m => m.id).join(',')) {
+    setTabState({ models: props.models.map(m => m.id).join(','), tab: defaultTab })
   }
   let fallbackTab: ChangeTab = 'new'
   if (counts.existing) fallbackTab = 'existing'
   else if (counts.removed) fallbackTab = 'removed'
   const activeTab = counts[tabState.tab] > 0 ? tabState.tab : fallbackTab
+
+  // Wrap onChange to track previous selection for ModelCard
+  const handleChange = (models: string[]) => {
+    (handleChange as any).prevSelected = props.selected
+    props.onChange(models)
+  }
 
   return (
     <div className='space-y-3'>
@@ -294,8 +408,8 @@ export function UpstreamModelSelection(props: UpstreamModelSelectionProps) {
               size='sm'
               disabled={!categorized.filtered.length}
               onClick={() =>
-                props.onChange([
-                  ...new Set([...props.selected, ...categorized.filtered]),
+                handleChange([
+                  ...new Set([...props.selected, ...categorized.filtered.map(m => m.id)]),
                 ])
               }
             >
@@ -313,7 +427,7 @@ export function UpstreamModelSelection(props: UpstreamModelSelectionProps) {
               value === 'existing' ||
               value === 'removed'
             ) {
-              setTabState({ models: props.models, tab: value })
+              setTabState({ models: props.models.map(m => m.id).join(','), tab: value })
             }
           }}
         >
@@ -348,7 +462,7 @@ export function UpstreamModelSelection(props: UpstreamModelSelectionProps) {
                 models={models}
                 selected={props.selected}
                 redirectOnly={categorized.redirectOnly}
-                onChange={props.onChange}
+                onChange={handleChange}
                 onRedirectModel={props.onRedirectModel}
                 aliases={props.aliases}
               />
@@ -366,7 +480,7 @@ export function UpstreamModelSelection(props: UpstreamModelSelectionProps) {
                   models={models}
                   selected={props.selected}
                   redirectOnly={categorized.redirectOnly}
-                  onChange={props.onChange}
+                  onChange={handleChange}
                   onRedirectModel={props.onRedirectModel}
                   aliases={props.aliases}
                 />
@@ -388,7 +502,7 @@ export function UpstreamModelSelection(props: UpstreamModelSelectionProps) {
                 models={categorized.removed}
                 selected={props.selected}
                 redirectOnly={categorized.redirectOnly}
-                onChange={props.onChange}
+                onChange={handleChange}
                 onRedirectModel={props.onRedirectModel}
                 aliases={props.aliases}
               />
@@ -404,7 +518,7 @@ export function UpstreamModelSelection(props: UpstreamModelSelectionProps) {
               models={models}
               selected={props.selected}
               redirectOnly={categorized.redirectOnly}
-              onChange={props.onChange}
+              onChange={handleChange}
               onRedirectModel={props.onRedirectModel}
               aliases={props.aliases}
             />

@@ -21,6 +21,7 @@ import (
 	"github.com/QuantumNous/new-api/relaykit/types"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/gin-gonic/gin"
+	"github.com/samber/lo"
 	"github.com/tidwall/gjson"
 )
 
@@ -598,12 +599,31 @@ type GeminiModelsResponse struct {
 }
 
 func FetchGeminiModels(baseURL, apiKey string, setting dto.ChannelSettings) ([]string, error) {
+	models, err := FetchGeminiModelsWithMetadata(baseURL, apiKey, setting)
+	if err != nil {
+		return nil, err
+	}
+	ids := lo.Map(models, func(m dto.UpstreamModelInfo, _ int) string {
+		return m.ID
+	})
+	return normalizeModelNames(ids), nil
+}
+
+func normalizeModelNames(models []string) []string {
+	return lo.Uniq(lo.FilterMap(models, func(model string, _ int) (string, bool) {
+		trimmed := strings.TrimSpace(model)
+		return trimmed, trimmed != ""
+	}))
+}
+
+// FetchGeminiModelsWithMetadata fetches models with full metadata from Gemini API
+func FetchGeminiModelsWithMetadata(baseURL, apiKey string, setting dto.ChannelSettings) ([]dto.UpstreamModelInfo, error) {
 	client, err := service.GetHttpClientWithProxySettings(setting.Proxy, setting)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create HTTP client: %v", err)
 	}
 
-	allModels := make([]string, 0)
+	allModels := make([]dto.UpstreamModelInfo, 0)
 	nextPageToken := ""
 	maxPages := 100 // Safety limit to prevent infinite loops
 
@@ -653,7 +673,90 @@ func FetchGeminiModels(baseURL, apiKey string, setting dto.ChannelSettings) ([]s
 				continue
 			}
 			modelName := strings.TrimPrefix(modelNameValue, "models/")
-			allModels = append(allModels, modelName)
+
+			// Extract metadata from Gemini model
+			var supportedMethods []string
+			if model.SupportedGenerationMethods != nil {
+				for _, m := range model.SupportedGenerationMethods {
+					if str, ok := m.(string); ok {
+						supportedMethods = append(supportedMethods, str)
+					}
+				}
+			}
+
+			var description string
+			if model.Description != nil {
+				if str, ok := model.Description.(string); ok {
+					description = str
+				}
+			}
+
+			var displayName string
+			if model.DisplayName != nil {
+				if str, ok := model.DisplayName.(string); ok {
+					displayName = str
+				}
+			}
+
+			var inputTokenLimit int
+			if model.InputTokenLimit != nil {
+				if f, ok := model.InputTokenLimit.(float64); ok {
+					inputTokenLimit = int(f)
+				}
+			}
+
+			var outputTokenLimit int
+			if model.OutputTokenLimit != nil {
+				if f, ok := model.OutputTokenLimit.(float64); ok {
+					outputTokenLimit = int(f)
+				}
+			}
+
+			var temperature any
+			if model.Temperature != nil {
+				temperature = model.Temperature
+			}
+
+			var maxTemperature any
+			if model.MaxTemperature != nil {
+				maxTemperature = model.MaxTemperature
+			}
+
+			var topP any
+			if model.TopP != nil {
+				topP = model.TopP
+			}
+
+			var topK any
+			if model.TopK != nil {
+				topK = model.TopK
+			}
+
+			var thinking any
+			if model.Thinking != nil {
+				thinking = model.Thinking
+			}
+
+			allModels = append(allModels, dto.UpstreamModelInfo{
+				ID:               modelName,
+				Object:           "model",
+				Description:      description,
+				DisplayName:      displayName,
+				MaxInputTokens:   inputTokenLimit,
+				MaxOutputTokens:  outputTokenLimit,
+				SupportedMethods: supportedMethods,
+				Metadata: map[string]any{
+					"temperature":      temperature,
+					"max_temperature":  maxTemperature,
+					"top_p":            topP,
+					"top_k":            topK,
+					"thinking":         thinking,
+				},
+				ProviderSpecific: map[string]any{
+					"base_model_id": model.BaseModelId,
+					"version":        model.Version,
+				},
+			})
 		}
 
 		nextPageToken = modelsResponse.NextPageToken

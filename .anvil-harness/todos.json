@@ -1,0 +1,28 @@
+{
+  "updatedAt": "2026-10-25T05:05:14.844Z",
+  "todos": [
+    {
+      "content": "Fix remaining backend compilation issues (runChannelUpstreamModelUpdateTaskOnce)",
+      "status": "completed",
+      "updatedAt": "2026-10-25T04:41:10.086Z",
+      "completedAt": "2026-10-25T04:52:20.878Z"
+    },
+    {
+      "content": "Update frontend types for UpstreamModelInfo",
+      "status": "completed",
+      "updatedAt": "2026-10-25T04:41:10.086Z",
+      "completedAt": "2026-10-25T04:53:11.774Z"
+    },
+    {
+      "content": "Update UpstreamModelSelection to display metadata",
+      "status": "completed",
+      "updatedAt": "2026-10-25T04:41:10.086Z",
+      "completedAt": "2026-10-25T05:05:14.844Z"
+    },
+    {
+      "content": "Test the implementation end-to-end",
+      "status": "in_progress",
+      "updatedAt": "2026-10-25T04:41:10.086Z"
+    }
+  ]
+}

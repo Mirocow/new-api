@@ -331,7 +331,7 @@ func FetchUpstreamModels(c *gin.Context) {
 		return
 	}
 
-	ids, err := fetchChannelUpstreamModelIDs(channel)
+	models, err := fetchChannelUpstreamModels(channel)
 	if err != nil {
 		common.ApiErrorT(c, "Failed to fetch models: {{error}}", map[string]any{"error": err.Error()})
 		return
@@ -340,7 +340,7 @@ func FetchUpstreamModels(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "",
-		"data":    ids,
+		"data":    models,
 	})
 }
 
@@ -1462,7 +1462,7 @@ func FetchModels(c *gin.Context) {
 		}
 	}
 
-	models, err := fetchChannelUpstreamModelIDs(channel)
+	models, err := fetchChannelUpstreamModels(channel)
 	if err != nil {
 		common.ApiErrorT(c, "Failed to fetch models: {{error}}", map[string]any{"error": err.Error()})
 		return

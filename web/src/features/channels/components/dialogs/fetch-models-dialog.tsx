@@ -34,9 +34,10 @@ import {
 } from '../../lib'
 import { useChannels } from '../channels-provider'
 import { UpstreamModelSelection } from '../upstream-model-selection'
+import type { UpstreamModelInfo } from '../../types'
 
-function normalizeModelNameList(models: readonly string[]): string[] {
-  return [...new Set(models.map((m) => normalizeModelName(m)).filter(Boolean))]
+function normalizeModelNameList(models: readonly UpstreamModelInfo[]): string[] {
+  return [...new Set(models.map((m) => normalizeModelName(m.id)).filter(Boolean))]
 }
 
 type FetchModelsDialogBaseProps = {
@@ -44,7 +45,7 @@ type FetchModelsDialogBaseProps = {
   onOpenChange: (open: boolean) => void
   redirectModels?: string[]
   redirectSourceModels?: string[]
-  customFetcher?: () => Promise<string[]>
+  customFetcher?: () => Promise<UpstreamModelInfo[]>
   channelName?: string | null
 }
 
@@ -76,7 +77,7 @@ export function FetchModelsDialog({
   const queryClient = useQueryClient()
   const [isFetching, setIsFetching] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
-  const [fetchedModels, setFetchedModels] = useState<string[]>([])
+  const [fetchedModels, setFetchedModels] = useState<UpstreamModelInfo[]>([])
   const [candidateModels, setCandidateModels] = useState<string[]>([])
   const [selectedModels, setSelectedModels] = useState<string[]>([])
 
