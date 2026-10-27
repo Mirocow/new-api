@@ -233,7 +233,7 @@ test('replacement previews include every selected model even when several share 
   const preview = within(screen.getByRole('list', { name: 'Preview' }))
   // Preview shows all 10 selected models
   expect(preview.getAllByRole('listitem')).toHaveLength(10)
-  // All 10 pairs are passed to onApply (with direction 'request', 'from' is original name, all unique)
+  // All 10 pairs are passed to onApply (conflicts are not filtered at this level)
   await user.click(screen.getByRole('button', { name: 'Add 10 mapping(s)' }))
   expect(onApply).toHaveBeenCalledWith({
     pairs: models.map((from) => ({ from, to: from.replaceAll('-', '') })),
