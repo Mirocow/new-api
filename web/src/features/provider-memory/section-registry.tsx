@@ -37,6 +37,13 @@ const providerMemoryRegistry = createSectionRegistry<
   defaultSection: 'dashboard',
   basePath: '/system-settings/provider-memory',
   urlStyle: 'path',
+  // Override URL generation to point to base path (no sub-sections)
+  getSectionNavItems: (t) => [
+    {
+      title: t('Dashboard'),
+      url: '/system-settings/provider-memory',
+    },
+  ],
 })
 
 export const PROVIDER_MEMORY_SECTION_IDS = providerMemoryRegistry.sectionIds

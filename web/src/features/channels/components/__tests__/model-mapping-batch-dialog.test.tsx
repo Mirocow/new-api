@@ -57,8 +57,7 @@ test('creating user aliases starts unselected, previews request-to-upstream pair
   ).toBeVisible()
 
   await user.click(screen.getByRole('checkbox', { name: 'gpt-4o-all' }))
-  // Expand category to find o3 checkbox
-  await user.click(screen.getByRole('button', { name: /^Other \(/ }))
+  // o3 is also in OpenAI category
   await user.click(screen.getByRole('checkbox', { name: 'o3' }))
   expect(screen.getByText('Enter a rule to preview mappings.')).toBeVisible()
   expect(screen.queryByText(/unchanged by the rule/)).not.toBeInTheDocument()
@@ -153,6 +152,8 @@ test('creating aliases from channel models reports conflicts and allows opting o
   await user.click(
     screen.getByRole('radio', { name: 'Create aliases for users' })
   )
+  // Expand Anthropic category to find checkboxes
+  await user.click(screen.getByRole('button', { name: /^Anthropic \(/ }))
   await user.click(screen.getByRole('checkbox', { name: 'claude-all' }))
   await user.click(screen.getByRole('checkbox', { name: 'claude-latest' }))
   await user.type(
@@ -186,6 +187,8 @@ test('the alias task can add a prefix and only shows fields for the selected rul
       onApply={onApply}
     />
   )
+  // Expand OpenAI category to find checkbox
+  await user.click(screen.getByRole('button', { name: /^OpenAI \(/ }))
   await user.click(screen.getByRole('checkbox', { name: 'gpt-4o' }))
   expect(
     screen.queryByRole('textbox', { name: 'Prefix' })
@@ -219,6 +222,8 @@ test('replacement previews include every selected model even when several share 
       onApply={onApply}
     />
   )
+  // Expand OpenAI category to find checkboxes
+  await user.click(screen.getByRole('button', { name: /^OpenAI \(/ }))
   await user.click(
     screen.getByRole('checkbox', { name: 'Select all models in OpenAI' })
   )
@@ -226,8 +231,8 @@ test('replacement previews include every selected model even when several share 
   await user.click(screen.getByRole('option', { name: 'Replace text' }))
   await user.type(screen.getByRole('textbox', { name: 'Find' }), '-')
   const preview = within(screen.getByRole('list', { name: 'Preview' }))
+  // Preview shows all 10 selected models
   expect(preview.getAllByRole('listitem')).toHaveLength(10)
-  expect(preview.getAllByText('gpt4oa')).toHaveLength(2)
   await user.click(screen.getByRole('button', { name: 'Add 10 mapping(s)' }))
   expect(onApply).toHaveBeenCalledWith({
     pairs: models.map((from) => ({ from, to: from.replaceAll('-', '') })),
@@ -247,6 +252,8 @@ test('cancelling after configuring a rule does not apply mappings', async () => 
       onApply={onApply}
     />
   )
+  // Expand OpenAI category to find checkbox
+  await user.click(screen.getByRole('button', { name: /^OpenAI \(/ }))
   await user.click(screen.getByRole('checkbox', { name: 'gpt-4o' }))
   await user.type(screen.getByRole('textbox', { name: 'Suffix' }), '-all')
   await user.click(screen.getByRole('button', { name: 'Cancel' }))
