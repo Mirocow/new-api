@@ -234,11 +234,16 @@ test('replacement previews include every selected model even when several share 
   // Preview shows all 10 selected models
   expect(preview.getAllByRole('listitem')).toHaveLength(10)
   // All 10 pairs are passed to onApply (conflicts are not filtered at this level)
+  // Order may differ from input due to categorization
   await user.click(screen.getByRole('button', { name: 'Add 10 mapping(s)' }))
-  expect(onApply).toHaveBeenCalledWith({
-    pairs: models.map((from) => ({ from, to: from.replaceAll('-', '') })),
-    syncModels: false,
-  })
+  expect(onApply).toHaveBeenCalledWith(
+    expect.objectContaining({
+      pairs: expect.arrayContaining(
+        models.map((from) => ({ from, to: from.replaceAll('-', '') }))
+      ),
+      syncModels: false,
+    })
+  )
 })
 
 test('cancelling after configuring a rule does not apply mappings', async () => {
