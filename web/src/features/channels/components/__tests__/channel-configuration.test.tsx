@@ -2617,7 +2617,7 @@ test('on wide screens redirecting a fetched model opens the floating panel besid
     picker.queryByRole('button', { name: 'upstream' })
   ).not.toBeInTheDocument()
   await user.keyboard('{Enter}')
-  expect(screen.getByLabelText('Published as upstream')).toBeVisible()
+  expect(panel.getByLabelText('Published as upstream')).toBeVisible()
   expect(picker.getByRole('button', { name: 'upstream' })).toBeVisible()
   expect(picker.getByRole('button', { name: 'custom-model' })).toBeVisible()
   expect(picker.queryByRole('button', { name: 'ups' })).not.toBeInTheDocument()

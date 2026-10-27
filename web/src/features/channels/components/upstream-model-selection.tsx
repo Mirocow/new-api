@@ -46,6 +46,14 @@ import type { UpstreamModelInfo } from '../../types'
 
 function sortedModelCategories(models: UpstreamModelInfo[]): [string, UpstreamModelInfo[]][] {
   const categorized = categorizeModelsWithInfo(models)
+  // Sort models within each category by display_name or id
+  for (const categoryModels of Object.values(categorized)) {
+    categoryModels.sort((a, b) => {
+      const nameA = a.display_name || a.id
+      const nameB = b.display_name || b.id
+      return nameA.localeCompare(nameB, undefined, { sensitivity: 'base' })
+    })
+  }
   return Object.entries(categorized).sort(([a], [b]) => {
     if (a === 'Other') return 1
     if (b === 'Other') return -1

@@ -437,5 +437,28 @@ func SetApiRouter(router *gin.Engine) {
 			deploymentsRoute.POST("/:id/extend", controller.ExtendDeployment)
 			deploymentsRoute.DELETE("/:id", controller.DeleteDeployment)
 		}
+
+		// Provider Memory (Hindsight-style provider memory for routing hints)
+		providerMemoryRoute := apiRouter.Group("/provider-memory")
+		providerMemoryRoute.Use(middleware.RootAuth())
+		{
+			providerMemoryRoute.GET("/config", controller.GetProviderMemoryConfig)
+			providerMemoryRoute.PUT("/config", controller.UpdateProviderMemoryConfig)
+			providerMemoryRoute.GET("/stats", controller.GetProviderMemoryStats)
+
+			providerMemoryRoute.GET("/facts", controller.ListProviderMemoryFacts)
+			providerMemoryRoute.GET("/observations", controller.ListProviderMemoryObservations)
+
+			providerMemoryRoute.GET("/mental-models", controller.ListProviderMentalModels)
+			providerMemoryRoute.GET("/mental-model", controller.GetProviderMentalModel)
+			providerMemoryRoute.POST("/mental-model", controller.UpsertProviderMentalModel)
+			providerMemoryRoute.DELETE("/mental-model", controller.DeleteProviderMentalModel)
+
+			providerMemoryRoute.POST("/consolidate", controller.ConsolidateProviderFacts)
+			providerMemoryRoute.POST("/prune", controller.PruneOldProviderFacts)
+
+			providerMemoryRoute.GET("/routing-hint/latency", controller.GetRoutingHintByLatency)
+			providerMemoryRoute.GET("/routing-hint/success", controller.GetRoutingHintBySuccess)
+		}
 	}
 }
