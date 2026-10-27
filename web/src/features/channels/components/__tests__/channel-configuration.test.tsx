@@ -750,8 +750,12 @@ test.each(['create', 'edit'])(
       'aria-selected',
       'true'
     )
+    // Expand OpenAI category (sora models fall under OpenAI) to find checkboxes
+    await user.click(dialog.getByRole('button', { name: /^OpenAI \(/ }))
     expect(dialog.getByRole('checkbox', { name: 'sora-7' })).not.toBeChecked()
     expect(dialog.getByRole('checkbox', { name: 'sora-2' })).not.toBeChecked()
+    // Expand Other category to find custom-model
+    await user.click(dialog.getByRole('button', { name: /^Other \(/ }))
     expect(
       dialog.getByRole('checkbox', { name: 'custom-model' })
     ).toHaveAttribute('aria-checked', String(mode === 'edit'))
@@ -833,17 +837,27 @@ test('plugin model selection shares the field state, preserves other sources, an
   const sora = extensions.getByRole('button', { name: 'Sora Selected 1 / 2' })
   await user.click(sora)
   let dialog = within(screen.getByRole('dialog', { name: 'Configure Models' }))
+  // Expand OpenAI category (sora-2 falls under OpenAI because it contains 'sora')
+  await user.click(dialog.getByRole('button', { name: /^OpenAI \(/ }))
   await user.click(dialog.getByRole('checkbox', { name: 'sora-2' }))
+  // Expand Other category to find custom-model
+  await user.click(dialog.getByRole('button', { name: /^Other \(/ }))
+  expect(dialog.getByRole('checkbox', { name: 'custom-model' })).toBeChecked()
   await user.click(dialog.getByRole('tab', { name: 'Video A' }))
   expect(
     dialog.queryByRole('checkbox', { name: 'sora-2' })
   ).not.toBeInTheDocument()
-  expect(dialog.getByRole('checkbox', { name: 'custom-model' })).toBeChecked()
+  // Expand Other category within Video A tab to find video-a-1
+  await user.click(dialog.getByRole('button', { name: /^Other \(/ }))
   await user.click(dialog.getByRole('checkbox', { name: 'video-a-1' }))
   await user.click(dialog.getByRole('tab', { name: 'All' }))
+  // Expand Other category to find custom-model
+  await user.click(dialog.getByRole('button', { name: /^Other \(/ }))
   expect(
     dialog.getAllByRole('checkbox', { name: 'custom-model' })
   ).toHaveLength(1)
+  // Expand OpenAI category to find sora-2
+  await user.click(dialog.getByRole('button', { name: /^OpenAI \(/ }))
   expect(dialog.getByRole('checkbox', { name: 'sora-2' })).toBeChecked()
   await user.click(dialog.getByRole('button', { name: 'Cancel' }))
   await waitFor(() => expect(sora).toHaveFocus())
@@ -854,9 +868,13 @@ test('plugin model selection shares the field state, preserves other sources, an
 
   await user.click(sora)
   dialog = within(screen.getByRole('dialog', { name: 'Configure Models' }))
+  // Expand OpenAI category to find sora-2
+  await user.click(dialog.getByRole('button', { name: /^OpenAI \(/ }))
   expect(dialog.getByRole('checkbox', { name: 'sora-2' })).not.toBeChecked()
-  await user.click(dialog.getByRole('checkbox', { name: 'custom-model' }))
   await user.click(dialog.getByRole('checkbox', { name: 'sora-2' }))
+  // Expand Other category to find custom-model
+  await user.click(dialog.getByRole('button', { name: /^Other \(/ }))
+  await user.click(dialog.getByRole('checkbox', { name: 'custom-model' }))
   await user.click(dialog.getByRole('button', { name: 'Apply' }))
   expect(sora).toHaveAccessibleName('Sora Selected 1 / 2')
   expect(
@@ -1105,6 +1123,8 @@ test('model discovery discards a response for old credentials and retains manual
   })
   expect(screen.queryByText('old-upstream-model')).not.toBeInTheDocument()
   await user.click(screen.getByRole('button', { name: 'Fetch Models' }))
+  // Expand Other category to find checkbox
+  await user.click(screen.getByRole('button', { name: /^Other \(/ }))
   await user.click(
     await screen.findByRole('checkbox', { name: 'current-upstream-model' })
   )
@@ -1805,6 +1825,8 @@ test('ordinary edits discover models with saved settings and keep removed draft 
     target: { value: 'new-key' },
   })
   await user.click(screen.getByRole('button', { name: 'Fetch from Upstream' }))
+  // Expand category to find checkbox (upstream-model falls into "Other")
+  await user.click(screen.getByRole('button', { name: /^Other \(/ }))
   await user.click(
     await screen.findByRole('checkbox', { name: 'upstream-model' })
   )
@@ -1823,6 +1845,8 @@ test('ordinary edits discover models with saved settings and keep removed draft 
   await user.keyboard('{Escape}')
   const removedTab = screen.getByRole('tab', { name: 'Removed Models (2)' })
   await user.click(removedTab)
+  // Expand Removed category to find checkboxes
+  await user.click(screen.getByRole('button', { name: /^Removed \(/ }))
   for (const model of ['custom-model', 'manual-draft']) {
     await user.click(screen.getByRole('checkbox', { name: model }))
     expect(
@@ -1875,7 +1899,9 @@ test('model configuration uses only the current form models and persists changes
   render(<ConfigurationHarness currentRow={editingChannel} />)
   await screen.findByDisplayValue('Existing channel')
   await user.click(screen.getByRole('button', { name: 'Fetch from Upstream' }))
-  await screen.findByRole('checkbox', { name: 'upstream-model' })
+    // Expand category to find checkbox (upstream-model falls into "Other")
+    await user.click(screen.getByRole('button', { name: /^Other \(/ }))
+    await screen.findByRole('checkbox', { name: 'upstream-model' })
   await user.type(
     screen.getByRole('combobox', { name: 'Select models or add custom ones' }),
     'gpt-two,'
@@ -1892,6 +1918,10 @@ test('model configuration uses only the current form models and persists changes
   const dialog = within(
     screen.getByRole('dialog', { name: 'Configure Models' })
   )
+  // Expand OpenAI category to find checkboxes
+  await user.click(dialog.getByRole('button', { name: /^OpenAI \(/ }))
+  // Expand Other category to find checkboxes
+  await user.click(dialog.getByRole('button', { name: /^Other \(/ }))
   for (const model of ['gpt-one', 'manual-model', 'alias', 'gpt-two']) {
     expect(dialog.getByRole('checkbox', { name: model })).toBeChecked()
   }
@@ -1920,6 +1950,8 @@ test('model configuration uses only the current form models and persists changes
   const reopened = within(
     screen.getByRole('dialog', { name: 'Configure Models' })
   )
+  // Expand OpenAI category to find gpt-two
+  await user.click(reopened.getByRole('button', { name: /^OpenAI \(/ }))
   expect(
     reopened.queryByRole('checkbox', { name: 'manual-model' })
   ).not.toBeInTheDocument()
@@ -1946,6 +1978,8 @@ test.each(['Cancel', 'Close', 'Escape'])(
     const dialog = within(
       screen.getByRole('dialog', { name: 'Configure Models' })
     )
+    // Expand OpenAI category to find checkbox
+    await user.click(dialog.getByRole('button', { name: /^OpenAI \(/ }))
     const model = dialog.getByRole('checkbox', { name: 'gpt-one' })
     model.focus()
     await user.keyboard(' ')
@@ -1961,10 +1995,12 @@ test.each(['Cancel', 'Close', 'Escape'])(
     expect(screen.getByRole('button', { name: 'gpt-one' })).toBeVisible()
     expect(screen.getByRole('button', { name: 'gpt-two' })).toBeVisible()
     await user.click(trigger)
+    // Expand OpenAI category to find checkbox
+    await user.click(
+      within(screen.getByRole('dialog', { name: 'Configure Models' })).getByRole('button', { name: /^OpenAI \(/ })
+    )
     expect(
-      within(
-        screen.getByRole('dialog', { name: 'Configure Models' })
-      ).getByRole('checkbox', { name: 'gpt-one' })
+      within(screen.getByRole('dialog', { name: 'Configure Models' })).getByRole('checkbox', { name: 'gpt-one' })
     ).toBeChecked()
   }
 )
@@ -1979,6 +2015,8 @@ test('model configuration keeps unchecked candidates searchable and supports cat
   const dialog = within(
     screen.getByRole('dialog', { name: 'Configure Models' })
   )
+  // Expand OpenAI category
+  await user.click(dialog.getByRole('button', { name: /^OpenAI \(/ }))
   const category = dialog.getByRole('checkbox', {
     name: 'Select all models in OpenAI',
   })
@@ -2003,10 +2041,14 @@ test('model configuration keeps unchecked candidates searchable and supports cat
     dialog.getByRole('button', { name: 'Select all matching models' })
   ).toBeDisabled()
   await user.clear(search)
+  // Expand Other category to find manual-model
+  await user.click(dialog.getByRole('button', { name: /^Other \(/ }))
   expect(dialog.getByRole('checkbox', { name: 'manual-model' })).toBeChecked()
   await user.click(
     dialog.getByRole('checkbox', { name: 'Select all models in OpenAI' })
   )
+  // Expand Other category
+  await user.click(dialog.getByRole('button', { name: /^Other \(/ }))
   await user.click(
     dialog.getByRole('checkbox', { name: 'Select all models in Other' })
   )
@@ -2031,6 +2073,8 @@ test('model configuration is available for a plugin channel without upstream dis
   const dialog = within(
     screen.getByRole('dialog', { name: 'Configure Models' })
   )
+  // Expand Other category within Video A tab to find video-a-1
+  await user.click(dialog.getByRole('button', { name: /^Other \(/ }))
   expect(dialog.getByRole('checkbox', { name: 'video-a-1' })).toBeChecked()
   await user.click(dialog.getByRole('button', { name: 'Cancel' }))
   await user.click(screen.getByRole('button', { name: 'Clear All' }))
@@ -2067,6 +2111,8 @@ test('advanced custom edits preview draft connection settings with the saved key
     target: { value: 'unsaved-key' },
   })
   await user.click(screen.getByRole('button', { name: 'Fetch from Upstream' }))
+  // Expand Other category to find preview-model
+  await user.click(screen.getByRole('button', { name: /^Other \(/ }))
   expect(
     await screen.findByRole('checkbox', { name: 'preview-model' })
   ).toBeVisible()
@@ -2125,6 +2171,8 @@ test('an operator without sensitive write permission can discover saved models a
     quick.getByRole('switch', { name: 'Auto-disable channel' })
   ).not.toHaveAttribute('aria-disabled', 'true')
   await user.click(screen.getByRole('button', { name: 'Fetch from Upstream' }))
+  // Expand Other category to find upstream-model
+  await user.click(screen.getByRole('button', { name: /^Other \(/ }))
   expect(
     await screen.findByRole('checkbox', { name: 'upstream-model' })
   ).toBeVisible()
@@ -2276,6 +2324,8 @@ test('switching edited channels discards a pending model list from the previous 
   view.rerender(<ConfigurationHarness currentRow={otherChannel} />)
   await screen.findByDisplayValue('Second channel')
   await user.click(screen.getByRole('button', { name: 'Fetch from Upstream' }))
+  // Expand Other category to find second-model
+  await user.click(screen.getByRole('button', { name: /^Other \(/ }))
   expect(
     await screen.findByRole('checkbox', { name: 'second-model' })
   ).toBeVisible()
@@ -2428,6 +2478,8 @@ test('redirecting a model from the model picker publishes it, adds a mapping row
   const dialog = within(
     screen.getByRole('dialog', { name: 'Configure Models' })
   )
+  // Expand Other category to find Redirect button
+  await user.click(dialog.getByRole('button', { name: /^Other \(/ }))
   await user.click(
     dialog.getByRole('button', { name: 'Redirect custom-model' })
   )
@@ -2458,12 +2510,16 @@ test('fetched upstream models can be redirected in bulk with the model list sync
   await user.click(
     await screen.findByRole('tab', { name: 'Existing Models (1)' })
   )
+  // Expand Other category to find checkbox
+  await user.click(screen.getByRole('button', { name: /^Other \(/ }))
   await screen.findByRole('checkbox', { name: 'upstream-model' })
 
   await user.click(screen.getByRole('button', { name: 'Batch redirect' }))
   const dialog = within(
     screen.getByRole('dialog', { name: 'Batch add mappings' })
   )
+  // Expand Other category in batch dialog
+  await user.click(dialog.getByRole('button', { name: /^Other \(/ }))
   expect(
     dialog.getByRole('tab', { name: /Upstream model list/ })
   ).toHaveAttribute('aria-selected', 'true')
@@ -2498,7 +2554,9 @@ test('a fetched upstream model can be given a request name from its own row', as
   render(<ConfigurationHarness currentRow={editingChannel} />)
   await screen.findByDisplayValue('Existing channel')
   await user.click(screen.getByRole('button', { name: 'Fetch from Upstream' }))
-  await screen.findByRole('checkbox', { name: 'upstream-model' })
+    // Expand category to find checkbox (upstream-model falls into "Other")
+    await user.click(screen.getByRole('button', { name: /^Other \(/ }))
+    await screen.findByRole('checkbox', { name: 'upstream-model' })
 
   await user.click(
     screen.getByRole('button', { name: 'Redirect upstream-model' })
@@ -2522,8 +2580,11 @@ test('on wide screens redirecting a fetched model opens the floating panel besid
   render(<ConfigurationHarness currentRow={editingChannel} />)
   await screen.findByDisplayValue('Existing channel')
   await user.click(screen.getByRole('button', { name: 'Fetch from Upstream' }))
-  await screen.findByRole('checkbox', { name: 'upstream-model' })
+    // Expand category to find checkbox (upstream-model falls into "Other")
+    await user.click(screen.getByRole('button', { name: /^Other \(/ }))
+    await screen.findByRole('checkbox', { name: 'upstream-model' })
 
+  // The Redirect button should be visible after finding the checkbox
   await user.click(
     screen.getByRole('button', { name: 'Redirect upstream-model' })
   )
@@ -2599,6 +2660,8 @@ test.each(['current session', 'saved preference'])(
     await user.click(
       screen.getByRole('button', { name: 'Fetch from Upstream' })
     )
+    // Expand category to find checkbox (upstream-model falls into "Other")
+    await user.click(screen.getByRole('button', { name: /^Other \(/ }))
     await screen.findByRole('checkbox', { name: 'upstream-model' })
     if (collapsedIn === 'current session') {
       await user.click(screen.getByRole('button', { name: 'Redirect panel' }))
@@ -2672,6 +2735,8 @@ test('redirecting a recognized upstream name opens an empty alias draft without 
   render(<ConfigurationHarness currentRow={editingChannel} />)
   await screen.findByDisplayValue('Existing channel')
   await user.click(screen.getByRole('button', { name: 'Fetch from Upstream' }))
+  // Expand OpenAI category to find redirect button
+  await user.click(screen.getByRole('button', { name: /^OpenAI \(/ }))
   await user.click(
     await screen.findByRole('button', { name: 'Redirect gpt-4o-all' })
   )
@@ -2713,6 +2778,8 @@ test('the redirect panel batch action starts empty and only applies explicitly s
   await user.click(
     await screen.findByRole('tab', { name: 'Existing Models (2)' })
   )
+  // Expand OpenAI category to find checkbox
+  await user.click(screen.getByRole('button', { name: /^OpenAI \(/ }))
   await screen.findByRole('checkbox', { name: 'gpt-4o-all' })
 
   await user.click(screen.getByRole('button', { name: 'Redirect panel' }))
@@ -2724,6 +2791,8 @@ test('the redirect panel batch action starts empty and only applies explicitly s
   let dialog = within(
     screen.getByRole('dialog', { name: 'Batch add mappings' })
   )
+  // Expand OpenAI category in batch dialog
+  await user.click(dialog.getByRole('button', { name: /^OpenAI \(/ }))
   expect(dialog.getByRole('checkbox', { name: 'gpt-4o-all' })).not.toBeChecked()
   expect(dialog.getByRole('checkbox', { name: 'o3-all' })).not.toBeChecked()
   await user.click(dialog.getByRole('checkbox', { name: 'gpt-4o-all' }))
@@ -2737,6 +2806,8 @@ test('the redirect panel batch action starts empty and only applies explicitly s
 
   await user.click(panel.getByRole('button', { name: 'Batch Add' }))
   dialog = within(screen.getByRole('dialog', { name: 'Batch add mappings' }))
+  // Expand OpenAI category in batch dialog
+  await user.click(dialog.getByRole('button', { name: /^OpenAI \(/ }))
   expect(dialog.getByRole('checkbox', { name: 'gpt-4o-all' })).not.toBeChecked()
   await user.click(dialog.getByRole('checkbox', { name: 'gpt-4o-all' }))
   await user.type(dialog.getByRole('textbox', { name: 'Suffix' }), '-all')

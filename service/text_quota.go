@@ -1,6 +1,7 @@
 package service
 
 import (
+	"fmt"
 	"math"
 	"sort"
 	"strings"
@@ -11,6 +12,7 @@ import (
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/pkg/billingexpr"
+	"github.com/QuantumNous/new-api/service/providermemory"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/relaykit/dto"
@@ -541,6 +543,53 @@ func PostTextConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, us
 	}
 
 	attachQuotaSaturation(ctx, relayInfo, other)
+
+	// Retain provider performance fact for memory-based routing hints.
+	// This is a best-effort background operation; failures are logged but
+	// don't block the request path.
+	go func() {
+		latencyMs := int64(0)
+		if !relayInfo.FirstResponseTime.IsZero() && !relayInfo.StartTime.IsZero() {
+			latencyMs = relayInfo.FirstResponseTime.Sub(relayInfo.StartTime).Milliseconds()
+		}
+		success := summary.Quota >= 0 // negative quota means refund
+		metrics := map[string]any{
+			"latency_ms":        latencyMs,
+			"success_rate":      map[bool]float64{true: 1, false: 0}[success],
+			"error_rate":        map[bool]float64{true: 0, false: 1}[success],
+			"cost_per_1k":       summary.ModelPrice,
+			"quota_used":        summary.Quota,
+			"prompt_tokens":     summary.PromptTokens,
+			"completion_tokens": summary.CompletionTokens,
+		}
+		metricsJSON, _ := common.Marshal(metrics)
+		entities := []string{}
+		if summary.IsClaudeUsageSemantic {
+			entities = append(entities, "anthropic")
+		}
+		if summary.ImageTokens > 0 {
+			entities = append(entities, "image")
+		}
+		if summary.AudioTokens > 0 {
+			entities = append(entities, "audio")
+		}
+		if len(summary.ToolSurchargeItems) > 0 {
+			entities = append(entities, "tools")
+		}
+		keywords := []string{summary.ModelName, relayInfo.ChannelMeta.UpstreamModelName}
+		if relayInfo.ChannelMeta.ChannelType > 0 {
+			keywords = append(keywords, fmt.Sprintf("type%d", relayInfo.ChannelMeta.ChannelType))
+		}
+		providermemory.RetainFact(providermemory.FactInput{
+			ChannelId:   relayInfo.ChannelId,
+			ModelName:   summary.ModelName,
+			ChannelType: relayInfo.ChannelMeta.ChannelType,
+			Metrics:     string(metricsJSON),
+			Entities:    entities,
+			Keywords:    keywords,
+			Success:     success,
+		})
+	}()
 
 	model.RecordConsumeLog(ctx, relayInfo.UserId, model.RecordConsumeLogParams{
 		ChannelId:        relayInfo.ChannelId,

@@ -140,3 +140,27 @@ func TestTaskDurationBounds(t *testing.T) {
 		})
 	}
 }
+
+func TestGetFullRequestURLTrimsV1Suffix(t *testing.T) {
+	cases := []struct {
+		name        string
+		baseURL     string
+		requestURL  string
+		channelType int
+		want        string
+	}{
+		{name: "no v1 suffix", baseURL: "https://api.example.com", requestURL: "/v1/chat/completions", channelType: constant.ChannelTypeOpenAI, want: "https://api.example.com/v1/chat/completions"},
+		{name: "v1 suffix", baseURL: "https://api.example.com/v1", requestURL: "/v1/chat/completions", channelType: constant.ChannelTypeOpenAI, want: "https://api.example.com/v1/chat/completions"},
+		{name: "v1 suffix with trailing slash", baseURL: "https://api.example.com/v1/", requestURL: "/v1/chat/completions", channelType: constant.ChannelTypeOpenAI, want: "https://api.example.com/v1/chat/completions"},
+		{name: "trailing slash only", baseURL: "https://api.example.com/", requestURL: "/v1/chat/completions", channelType: constant.ChannelTypeOpenAI, want: "https://api.example.com/v1/chat/completions"},
+		{name: "azure channel", baseURL: "https://api.example.com/v1", requestURL: "/openai/deployments/model/chat/completions", channelType: constant.ChannelTypeAzure, want: "https://api.example.com/openai/deployments/model/chat/completions"},
+		{name: "cloudflare gateway - openai", baseURL: "https://gateway.ai.cloudflare.com/account/abc", requestURL: "/v1/chat/completions", channelType: constant.ChannelTypeOpenAI, want: "https://gateway.ai.cloudflare.com/account/abc/chat/completions"},
+		{name: "cloudflare gateway - azure", baseURL: "https://gateway.ai.cloudflare.com/account/abc", requestURL: "/openai/deployments/model/chat/completions", channelType: constant.ChannelTypeAzure, want: "https://gateway.ai.cloudflare.com/account/abc/model/chat/completions"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := GetFullRequestURL(tc.baseURL, tc.requestURL, tc.channelType)
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}

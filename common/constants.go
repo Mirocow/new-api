@@ -246,6 +246,12 @@ var (
 
 var RateLimitKeyExpirationDuration = 20 * time.Minute
 
+// Provider memory (Hindsight-style memory for routing hints)
+var ProviderMemoryEnabled bool
+var ProviderMemoryConsolidateInterval int // seconds
+var ProviderMemoryRetentionHours int
+var ProviderMemoryMinFacts int
+
 const (
 	UserStatusEnabled  = 1 // don't use 0, 0 is the default value!
 	UserStatusDisabled = 2 // also don't use 0

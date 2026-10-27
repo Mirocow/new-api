@@ -74,6 +74,13 @@ func NewGenericOAuthProvider(config *model.CustomOAuthProvider) *GenericOAuthPro
 	return &GenericOAuthProvider{config: config}
 }
 
+// normalizeEndpointURL trims surrounding whitespace and trailing slashes from a
+// provider endpoint URL so an operator may paste it with or without a trailing
+// "/" without producing a double-slash path.
+func normalizeEndpointURL(raw string) string {
+	return strings.TrimRight(strings.TrimSpace(raw), "/")
+}
+
 func (p *GenericOAuthProvider) GetName() string {
 	return p.config.Name
 }
@@ -112,7 +119,7 @@ func (p *GenericOAuthProvider) ExchangeToken(ctx context.Context, code string, c
 		values.Set("client_secret", p.config.ClientSecret)
 	}
 
-	req, err = http.NewRequestWithContext(ctx, "POST", p.config.TokenEndpoint, strings.NewReader(values.Encode()))
+	req, err = http.NewRequestWithContext(ctx, "POST", normalizeEndpointURL(p.config.TokenEndpoint), strings.NewReader(values.Encode()))
 	if err != nil {
 		return nil, err
 	}
@@ -126,7 +133,7 @@ func (p *GenericOAuthProvider) ExchangeToken(ctx context.Context, code string, c
 	}
 
 	logger.LogDebug(ctx, "[OAuth-Generic-%s] ExchangeToken: token_endpoint=%s, redirect_uri=%s, auth_style=%d",
-		p.config.Slug, p.config.TokenEndpoint, redirectUri, authStyle)
+		p.config.Slug, normalizeEndpointURL(p.config.TokenEndpoint), redirectUri, authStyle)
 
 	client := http.Client{
 		Timeout: 20 * time.Second,
@@ -196,9 +203,9 @@ func (p *GenericOAuthProvider) ExchangeToken(ctx context.Context, code string, c
 }
 
 func (p *GenericOAuthProvider) GetUserInfo(ctx context.Context, token *OAuthToken) (*OAuthUser, error) {
-	logger.LogDebug(ctx, "[OAuth-Generic-%s] GetUserInfo: fetching user info from %s", p.config.Slug, p.config.UserInfoEndpoint)
+	logger.LogDebug(ctx, "[OAuth-Generic-%s] GetUserInfo: fetching user info from %s", p.config.Slug, normalizeEndpointURL(p.config.UserInfoEndpoint))
 
-	req, err := http.NewRequestWithContext(ctx, "GET", p.config.UserInfoEndpoint, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", normalizeEndpointURL(p.config.UserInfoEndpoint), nil)
 	if err != nil {
 		return nil, err
 	}

@@ -85,9 +85,13 @@ test.each([
       name: `Removed Models (${removedCount})`,
     })
     if (models.length > 0) {
+      // Expand the category containing 'gpt-new' (OpenAI)
+      await user.click(screen.getByRole('button', { name: /^OpenAI \(/ }))
       await user.click(screen.getByRole('checkbox', { name: 'gpt-new' }))
     }
     await user.click(removedTab)
+    // Expand Removed category to find checkboxes
+    await user.click(screen.getByRole('button', { name: /^Removed \(/ }))
     expect(
       screen.queryByRole('checkbox', { name: 'alias' })
     ).not.toBeInTheDocument()
@@ -134,12 +138,16 @@ test('category headers keep a transparent background while expanding and collaps
   render(<InlineSelection />)
   const header = screen.getByRole('button', { name: /^OpenAI \(2\)/ })
 
-  expect(header).toHaveAttribute('aria-expanded', 'true')
+  // Categories are collapsed by default
+  expect(header).toHaveAttribute('aria-expanded', 'false')
   expect(header).toHaveClass(
     'aria-expanded:bg-transparent',
     'hover:bg-transparent',
     'dark:hover:bg-transparent'
   )
+  await user.click(header)
+  expect(header).toHaveAttribute('aria-expanded', 'true')
+  expect(screen.getByRole('checkbox', { name: 'gpt-one' })).toBeVisible()
   await user.click(header)
   expect(header).toHaveAttribute('aria-expanded', 'false')
   expect(
@@ -198,6 +206,8 @@ test('selecting search results adds only matching models and retains the manual 
   expect(
     screen.queryByRole('checkbox', { name: 'another-model' })
   ).not.toBeInTheDocument()
+  // Expand category to find checkbox
+  await user.click(screen.getByRole('button', { name: /^OpenAI \(/ }))
   await user.click(screen.getByRole('checkbox', { name: 'gpt-one' }))
   expect(screen.getByLabelText('Selected models')).toHaveTextContent(
     'manual-model,gpt-two'
@@ -230,12 +240,15 @@ test('the redirect action appears per model only when a handler is provided and 
       onRedirectModel={onRedirect}
     />
   )
+  // Expand category to find redirect button
+  await user.click(screen.getByRole('button', { name: /^OpenAI \(/ }))
   await user.click(screen.getByRole('button', { name: 'Redirect gpt-one' }))
   expect(onRedirect).toHaveBeenCalledWith('gpt-one')
   expect(screen.getByRole('checkbox', { name: 'gpt-one' })).not.toBeChecked()
 })
 
-test('models published under another name show that name as a badge next to the row', () => {
+test('models published under another name show that name as a badge next to the row', async () => {
+  const user = userEvent.setup()
   render(
     <UpstreamModelSelection
       models={['gpt-4o-all', 'o3']}
@@ -246,6 +259,8 @@ test('models published under another name show that name as a badge next to the 
       aliases={{ 'gpt-4o-all': 'gpt-4o' }}
     />
   )
+  // Expand category to find badge
+  await user.click(screen.getByRole('button', { name: /^OpenAI \(/ }))
   expect(screen.getByLabelText('Published as gpt-4o')).toHaveTextContent(
     'gpt-4o'
   )
@@ -265,6 +280,8 @@ test('long model names remain fully labeled and selectable in a container-respon
       onChange={onChange}
     />
   )
+  // Expand category to find checkbox
+  await user.click(screen.getByRole('button', { name: /^OpenAI \(/ }))
   const checkbox = screen.getByRole('checkbox', { name: model })
   const category = checkbox.closest('[data-slot="collapsible"]')
   expect(category).toHaveClass('@container')

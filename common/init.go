@@ -216,6 +216,12 @@ func initConstantEnv() {
 	constant.TaskPluginProtocolTickJitterMilliseconds = GetEnvOrDefault("TASK_PLUGIN_PROTOCOL_TICK_JITTER_MILLISECONDS", 500)
 	constant.TaskPluginProtocolHeartbeatSeconds = GetEnvOrDefault("TASK_PLUGIN_PROTOCOL_HEARTBEAT_SECONDS", 15)
 
+	// Provider memory (Hindsight-style memory for routing hints)
+	ProviderMemoryEnabled = GetEnvOrDefaultBool("PROVIDER_MEMORY_ENABLED", false)
+	ProviderMemoryConsolidateInterval = GetEnvOrDefault("PROVIDER_MEMORY_CONSOLIDATE_INTERVAL", 300)
+	ProviderMemoryRetentionHours = GetEnvOrDefault("PROVIDER_MEMORY_RETENTION_HOURS", 168)
+	ProviderMemoryMinFacts = GetEnvOrDefault("PROVIDER_MEMORY_MIN_FACTS", 5)
+
 	soraPatchStr := GetEnvOrDefaultString("TASK_PRICE_PATCH", "")
 	if soraPatchStr != "" {
 		var taskPricePatches []string

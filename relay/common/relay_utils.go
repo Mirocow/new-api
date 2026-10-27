@@ -24,6 +24,15 @@ type HasImage interface {
 }
 
 func GetFullRequestURL(baseURL string, requestURL string, channelType int) string {
+	// Operators may configure a channel base URL with or without a trailing
+	// "/v1" (for example "https://api.hyperbolic.ai/v1"). Strip a trailing
+	// "/v1" so a request path such as "/v1/chat/completions" does not become
+	// a duplicated "/v1/v1/chat/completions" path. A trailing slash on the
+	// base URL is also removed to avoid a double-slash seam. Only "/v1" is
+	// stripped, so providers that route other path prefixes keep working.
+	baseURL = strings.TrimRight(baseURL, "/")
+	baseURL = strings.TrimSuffix(baseURL, "/v1")
+
 	fullRequestURL := fmt.Sprintf("%s%s", baseURL, requestURL)
 
 	if strings.HasPrefix(baseURL, "https://gateway.ai.cloudflare.com") {

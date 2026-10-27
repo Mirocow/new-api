@@ -116,6 +116,8 @@ describe('upstream update preview', () => {
       screen.queryByRole('button', { name: 'Review selected changes' })
     ).not.toBeInTheDocument()
     await act(async () => resolve(detectionResponse))
+    // Expand category to find checkbox
+    await user.click(screen.getByRole('button', { name: /^OpenAI \(/ }))
     expect(screen.getByRole('checkbox', { name: 'gpt-new' })).toBeChecked()
     await user.click(screen.getByRole('button', { name: 'Cancel' }))
     await waitFor(() =>
@@ -128,6 +130,8 @@ describe('upstream update preview', () => {
     const user = userEvent.setup()
     render(<UpstreamUpdateHarness />)
     await user.click(screen.getByRole('button', { name: 'Other channel' }))
+    // Expand category to find checkbox (other-old falls into "Other" category)
+    await user.click(screen.getByRole('button', { name: /^Other \(/ }))
     const model = screen.getByRole('checkbox', { name: 'other-old' })
     expect(model).not.toBeChecked()
     expect(
@@ -137,6 +141,8 @@ describe('upstream update preview', () => {
     expect(model).toBeChecked()
     await user.click(screen.getByRole('button', { name: 'Cancel' }))
     await user.click(screen.getByRole('button', { name: 'Other channel' }))
+    // Expand category again
+    await user.click(screen.getByRole('button', { name: /^Other \(/ }))
     expect(
       screen.getByRole('checkbox', { name: 'other-old' })
     ).not.toBeChecked()
@@ -150,8 +156,12 @@ describe('upstream update preview', () => {
     const user = userEvent.setup()
     render(<UpstreamUpdateHarness />)
     await user.click(screen.getByRole('button', { name: 'Detect' }))
+    // Expand category to find checkbox
+    await user.click(screen.getByRole('button', { name: /^OpenAI \(/ }))
     await user.click(await screen.findByRole('checkbox', { name: 'gpt-extra' }))
     await user.click(screen.getByRole('tab', { name: 'Remove Models (1)' }))
+    // Expand category in Remove tab
+    await user.click(screen.getByRole('button', { name: /^OpenAI \(/ }))
     const removal = screen.getByRole('checkbox', { name: 'gpt-old' })
     expect(removal).not.toBeChecked()
     await user.click(removal)
@@ -214,6 +224,8 @@ describe('upstream update preview', () => {
     const user = userEvent.setup()
     render(<UpstreamUpdateHarness />)
     await user.click(screen.getByRole('button', { name: 'Detect' }))
+    // Expand category to find checkbox
+    await user.click(screen.getByRole('button', { name: /^OpenAI \(/ }))
     await user.click(await screen.findByRole('checkbox', { name: 'gpt-extra' }))
     await user.click(
       screen.getByRole('button', { name: 'Review selected changes' })
@@ -284,6 +296,8 @@ describe('upstream update preview', () => {
     await user.click(screen.getByRole('button', { name: 'Other channel' }))
     await act(async () => resolve(detectionResponse))
     expect(screen.getByText('#43 other channel')).toBeVisible()
+    // Expand "Other" category to find checkbox
+    await user.click(screen.getByRole('button', { name: /^Other \(/ }))
     expect(
       screen.getByRole('checkbox', { name: 'other-old' })
     ).not.toBeChecked()
@@ -338,6 +352,8 @@ describe('upstream update preview', () => {
     const user = userEvent.setup()
     render(<UpstreamUpdateHarness />)
     await user.click(screen.getByRole('button', { name: 'Detect' }))
+    // Expand category to find checkbox
+    await user.click(screen.getByRole('button', { name: /^OpenAI \(/ }))
     await user.click(
       await screen.findByRole('button', { name: 'Review selected changes' })
     )
@@ -352,6 +368,8 @@ describe('upstream update preview', () => {
       screen.queryByRole('dialog', { name: 'Update results' })
     ).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Refresh preview' }))
+    // Expand category again after refresh
+    await user.click(screen.getByRole('button', { name: /^OpenAI \(/ }))
     expect(
       await screen.findByRole('checkbox', { name: 'gpt-new' })
     ).toBeChecked()

@@ -74,7 +74,7 @@ function ModelCategory(props: ModelCategoryProps) {
   const allSelected = selectedCount === props.models.length
 
   return (
-    <Collapsible defaultOpen className='@container rounded-lg border'>
+    <Collapsible className='@container rounded-lg border'>
       <div className='flex items-center gap-3 px-3'>
         <Checkbox
           aria-label={t('Select all models in {{category}}', {
