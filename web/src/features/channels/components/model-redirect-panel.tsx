@@ -46,6 +46,8 @@ type ModelRedirectPanelProps = {
   onSyncModelsChange: (value: boolean) => void
   sourceModelOptions: string[]
   targetModelOptions: string[]
+  /** Aliases for upstream model names (request name -> upstream name). */
+  aliases?: Record<string, string>
   draftRequest: ModelMappingDraftRequest | null
   onDraftRequestHandled: () => void
   disabled?: boolean
@@ -103,6 +105,7 @@ export function ModelRedirectPanel(props: ModelRedirectPanelProps) {
         disabled={props.disabled}
         sourceModelOptions={props.sourceModelOptions}
         targetModelOptions={props.targetModelOptions}
+        aliases={props.aliases}
         draftRequest={props.draftRequest}
         onDraftRequestHandled={props.onDraftRequestHandled}
       />

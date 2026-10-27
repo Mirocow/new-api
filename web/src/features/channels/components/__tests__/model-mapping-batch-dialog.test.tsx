@@ -44,6 +44,8 @@ test('creating user aliases starts unselected, previews request-to-upstream pair
   expect(screen.getByRole('combobox', { name: 'Rule' })).toHaveTextContent(
     'Strip suffix'
   )
+  // Expand OpenAI category to find checkboxes
+  await user.click(screen.getByRole('button', { name: /^OpenAI \(/ }))
   expect(screen.getByRole('checkbox', { name: 'gpt-4o-all' })).not.toBeChecked()
   expect(
     screen.getByRole('button', { name: 'Add 0 mapping(s)' })
@@ -55,6 +57,8 @@ test('creating user aliases starts unselected, previews request-to-upstream pair
   ).toBeVisible()
 
   await user.click(screen.getByRole('checkbox', { name: 'gpt-4o-all' }))
+  // Expand category to find o3 checkbox
+  await user.click(screen.getByRole('button', { name: /^Other \(/ }))
   await user.click(screen.getByRole('checkbox', { name: 'o3' }))
   expect(screen.getByText('Enter a rule to preview mappings.')).toBeVisible()
   expect(screen.queryByText(/unchanged by the rule/)).not.toBeInTheDocument()
@@ -89,6 +93,8 @@ test('changing upstream names preserves the request name and leaves model-list s
   expect(
     screen.queryByRole('checkbox', { name: /Publish the request names/ })
   ).not.toBeInTheDocument()
+  // Expand Gemini category to find checkbox
+  await user.click(screen.getByRole('button', { name: /^Gemini \(/ }))
   await user.click(screen.getByRole('checkbox', { name: 'gemini-2.5-flash' }))
   await user.type(screen.getByRole('textbox', { name: 'Suffix' }), '-all')
   await user.click(screen.getByRole('button', { name: 'Add 1 mapping(s)' }))
@@ -110,9 +116,13 @@ test('switching the model list clears selection without changing the chosen task
       onApply={onApply}
     />
   )
+  // Expand OpenAI category to find checkbox
+  await user.click(screen.getByRole('button', { name: /^OpenAI \(/ }))
   await user.click(screen.getByRole('checkbox', { name: 'gpt-4o-all' }))
   await user.type(screen.getByRole('textbox', { name: 'Suffix' }), '-all')
   await user.click(screen.getByRole('tab', { name: /Channel models/ }))
+  // Expand Anthropic category
+  await user.click(screen.getByRole('button', { name: /^Anthropic \(/ }))
   expect(
     screen.getByRole('radio', { name: 'Create aliases for users' })
   ).toBeChecked()

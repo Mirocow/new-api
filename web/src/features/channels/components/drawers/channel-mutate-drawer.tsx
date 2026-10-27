@@ -5070,6 +5070,7 @@ export function ChannelMutateDrawer({
                   ...modelOptions.map((option) => option.value),
                 ]),
               ]}
+              aliases={upstreamAliases}
               draftRequest={mappingDraftRequest}
               onDraftRequestHandled={() => setMappingDraftRequest(null)}
               disabled={isSubmitting}

@@ -26,6 +26,7 @@ import {
   Shield,
   ShieldAlert,
   Wrench,
+  Brain,
 } from 'lucide-react'
 
 import { getAuthSectionNavItems } from '@/features/system-settings/auth/section-registry.tsx'
@@ -36,6 +37,7 @@ import { getOperationsSectionNavItems } from '@/features/system-settings/operati
 import { getPolicySectionNavItems } from '@/features/system-settings/request-policies/section-registry'
 import { getSecuritySectionNavItems } from '@/features/system-settings/security/section-registry.tsx'
 import { getSiteSectionNavItems } from '@/features/system-settings/site/section-registry.tsx'
+import { getProviderMemorySectionNavItems } from '@/features/provider-memory/section-registry.tsx'
 
 import type { NavGroup, SidebarView } from '../types'
 
@@ -91,6 +93,11 @@ function getSystemSettingsNavGroups(t: TFunction): NavGroup[] {
           title: t('Operations'),
           icon: Wrench,
           items: getOperationsSectionNavItems(t),
+        },
+        {
+          title: t('Provider Memory'),
+          icon: Brain,
+          items: getProviderMemorySectionNavItems(t),
         },
       ],
     },

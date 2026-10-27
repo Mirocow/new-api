@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { Code, ListPlus, Plus, Table, Trash2 } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
 import {
   useEffect,
   useEffectEvent,
@@ -59,6 +60,8 @@ type ModelMappingEditorProps = {
   disabled?: boolean
   sourceModelOptions?: string[]
   targetModelOptions?: string[]
+  /** Aliases for upstream model names (request name -> upstream name). */
+  aliases?: Record<string, string>
   /** Shows the batch button; the caller owns the batch dialog. */
   onBatchAdd?: () => void
   /**
@@ -482,19 +485,35 @@ export function ModelMappingEditor(props: ModelMappingEditorProps) {
                     disabled={props.disabled}
                     aria-label={t('Request Model Name')}
                   />
-                  <ComboboxInput
-                    id={rowInputId(row.id, 'to')}
-                    options={targetOptions}
-                    value={row.to}
-                    onValueChange={(value) =>
-                      handleRowChange(row.id, 'to', value)
-                    }
-                    placeholder='gpt-3.5-turbo-0125'
-                    emptyText='No matching items'
-                    allowCustomValue
-                    disabled={props.disabled}
-                    aria-label={t('Upstream Model Name')}
-                  />
+                  <div className='flex items-center gap-2'>
+                    <ComboboxInput
+                      id={rowInputId(row.id, 'to')}
+                      options={targetOptions}
+                      value={row.to}
+                      onValueChange={(value) =>
+                        handleRowChange(row.id, 'to', value)
+                      }
+                      placeholder='gpt-3.5-turbo-0125'
+                      emptyText='No matching items'
+                      allowCustomValue
+                      disabled={props.disabled}
+                      aria-label={t('Upstream Model Name')}
+                    />
+                    {props.aliases?.[row.to] && (
+                      <Badge
+                        variant='outline'
+                        aria-label={t('Published as {{model}}', {
+                          model: props.aliases[row.to],
+                        })}
+                        title={t('Published as {{model}}', {
+                          model: props.aliases[row.to],
+                        })}
+                        className='max-w-40 shrink-0 truncate font-normal'
+                      >
+                        {props.aliases[row.to]}
+                      </Badge>
+                    )}
+                  </div>
                   <Button
                     type='button'
                     variant='ghost'
