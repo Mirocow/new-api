@@ -16,38 +16,18 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { createSectionRegistry } from '@/features/system-settings/utils/section-registry'
+import type { TFunction } from 'i18next'
+import type { NavItem } from '@/components/layout/types'
 
-const PROVIDER_MEMORY_SECTIONS = [
-  {
-    id: 'dashboard',
-    titleKey: 'Dashboard',
-    build: () => null, // Main page, no section component
-  },
-] as const
-
-export type ProviderMemorySectionId = (typeof PROVIDER_MEMORY_SECTIONS)[number]['id']
-
-const providerMemoryRegistry = createSectionRegistry<
-  ProviderMemorySectionId,
-  unknown,
-  []
->({
-  sections: PROVIDER_MEMORY_SECTIONS,
-  defaultSection: 'dashboard',
-  basePath: '/system-settings/provider-memory',
-  urlStyle: 'path',
-  // Override URL generation to point to base path (no sub-sections)
-  getSectionNavItems: (t) => [
+/**
+ * Navigation items for Provider Memory sidebar section.
+ * Direct return without section registry to avoid URL generation issues.
+ */
+export function getProviderMemorySectionNavItems(t: TFunction): NavItem[] {
+  return [
     {
       title: t('Dashboard'),
       url: '/system-settings/provider-memory',
     },
-  ],
-})
-
-export const PROVIDER_MEMORY_SECTION_IDS = providerMemoryRegistry.sectionIds
-export const getProviderMemorySectionNavItems =
-  providerMemoryRegistry.getSectionNavItems
-export const getProviderMemorySectionContent =
-  providerMemoryRegistry.getSectionContent
+  ]
+}
