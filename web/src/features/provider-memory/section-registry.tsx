@@ -41,7 +41,7 @@ const providerMemoryRegistry = createSectionRegistry<
   getSectionNavItems: (t) => [
     {
       title: t('Dashboard'),
-      url: '/system-settings/provider-memory',
+      url: '/system-settings/provider-memory/',
     },
   ],
 })
