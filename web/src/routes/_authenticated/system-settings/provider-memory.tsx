@@ -23,7 +23,7 @@ import { useAuthStore } from '@/stores/auth-store'
 import { ProviderMemoryDashboard } from '@/features/provider-memory'
 
 export const Route = createFileRoute(
-  '/_authenticated/system-settings/provider-memory/'
+  '/_authenticated/system-settings/provider-memory'
 )({
   beforeLoad: () => {
     const { auth } = useAuthStore.getState()
