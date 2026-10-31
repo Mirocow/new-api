@@ -61,6 +61,19 @@ const (
 	ChannelTypeTaskPlugin     = 61
 	ChannelTypeVLLM           = 62
 	ChannelTypeSGLang         = 63
+	ChannelTypeGroq           = 64
+	ChannelTypeCerebras       = 65
+	ChannelTypeFireworks      = 66
+	ChannelTypeDeepInfra      = 67
+	ChannelTypeTogether       = 68
+	ChannelTypeHuggingFace    = 69
+	ChannelTypeAzureOpenAI    = 70
+	ChannelTypeGoogleAI       = 71
+	ChannelTypeAI21           = 72
+	ChannelTypeAnyscale       = 73
+	ChannelTypeMistralAI      = 74
+	ChannelTypeDashScope      = 75
+	ChannelTypeRequesty       = 76
 	ChannelTypeDummy          // this one is only for count, do not add any channel after this
 
 )
@@ -132,6 +145,18 @@ var ChannelBaseURLs = []string{
 	"",                                          //61
 	"",                                          //62
 	"",                                          //63
+	"https://api.groq.com",                      //64 Groq
+	"https://api.cerebras.ai",                   //65 Cerebras
+	"https://api.fireworks.ai",                  //66 Fireworks AI
+	"https://api.deepinfra.com",                 //67 DeepInfra
+	"https://api.together.xyz",                  //68 Together AI
+	"https://api-inference.huggingface.co",      //69 Hugging Face
+	"",                                          //70 Azure OpenAI (custom per deployment)
+	"https://generativelanguage.googleapis.com", //71 Google AI
+	"https://api.ai21.com",                      //72 AI21
+	"https://api.anyscale.com",                  //73 Anyscale
+	"https://api.mistral.ai",                    //74 Mistral AI
+	"https://dashscope.aliyuncs.com",            //75 DashScope
 }
 
 func GetChannelBaseURL(channelType int) string {
@@ -202,6 +227,19 @@ var ChannelTypeNames = map[int]string{
 	ChannelTypeTaskPlugin:     "Task Plugin",
 	ChannelTypeVLLM:           "vLLM",
 	ChannelTypeSGLang:         "SGLang",
+	ChannelTypeGroq:           "Groq",
+	ChannelTypeCerebras:       "Cerebras",
+	ChannelTypeFireworks:      "Fireworks AI",
+	ChannelTypeDeepInfra:      "DeepInfra",
+	ChannelTypeTogether:       "Together AI",
+	ChannelTypeHuggingFace:    "Hugging Face",
+	ChannelTypeAzureOpenAI:    "Azure OpenAI",
+	ChannelTypeGoogleAI:       "Google AI",
+	ChannelTypeAI21:           "AI21",
+	ChannelTypeAnyscale:       "Anyscale",
+	ChannelTypeMistralAI:      "Mistral AI",
+	ChannelTypeDashScope:      "DashScope",
+	ChannelTypeRequesty:       "Requesty",
 }
 
 func GetChannelTypeName(channelType int) string {

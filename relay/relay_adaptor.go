@@ -9,7 +9,9 @@ import (
 	_ "github.com/QuantumNous/new-api/plugins"
 	"github.com/QuantumNous/new-api/relay/channel"
 	"github.com/QuantumNous/new-api/relay/channel/advancedcustom"
+	"github.com/QuantumNous/new-api/relay/channel/ai21"
 	"github.com/QuantumNous/new-api/relay/channel/ali"
+	"github.com/QuantumNous/new-api/relay/channel/anyscale"
 	"github.com/QuantumNous/new-api/relay/channel/aws"
 	"github.com/QuantumNous/new-api/relay/channel/baidu"
 	"github.com/QuantumNous/new-api/relay/channel/baidu_v2"
@@ -18,13 +20,21 @@ import (
 	"github.com/QuantumNous/new-api/relay/channel/codex"
 	"github.com/QuantumNous/new-api/relay/channel/cohere"
 	"github.com/QuantumNous/new-api/relay/channel/coze"
+	"github.com/QuantumNous/new-api/relay/channel/cerebras"
+	"github.com/QuantumNous/new-api/relay/channel/deepinfra"
 	"github.com/QuantumNous/new-api/relay/channel/deepseek"
 	"github.com/QuantumNous/new-api/relay/channel/dify"
+	"github.com/QuantumNous/new-api/relay/channel/dashscope"
+	"github.com/QuantumNous/new-api/relay/channel/fireworks"
 	"github.com/QuantumNous/new-api/relay/channel/gemini"
+	"github.com/QuantumNous/new-api/relay/channel/googleai"
+	"github.com/QuantumNous/new-api/relay/channel/groq"
+	"github.com/QuantumNous/new-api/relay/channel/huggingface"
 	"github.com/QuantumNous/new-api/relay/channel/jimeng"
 	"github.com/QuantumNous/new-api/relay/channel/jina"
 	"github.com/QuantumNous/new-api/relay/channel/minimax"
 	"github.com/QuantumNous/new-api/relay/channel/mistral"
+	"github.com/QuantumNous/new-api/relay/channel/mistralai"
 	"github.com/QuantumNous/new-api/relay/channel/mokaai"
 	"github.com/QuantumNous/new-api/relay/channel/moonshot"
 	"github.com/QuantumNous/new-api/relay/channel/newapi"
@@ -36,6 +46,7 @@ import (
 	"github.com/QuantumNous/new-api/relay/channel/siliconflow"
 	"github.com/QuantumNous/new-api/relay/channel/sub2api"
 	"github.com/QuantumNous/new-api/relay/channel/submodel"
+	"github.com/QuantumNous/new-api/relay/channel/together"
 	jspluginadaptor "github.com/QuantumNous/new-api/relay/channel/task/jsplugin"
 	"github.com/QuantumNous/new-api/relay/channel/tencent"
 	"github.com/QuantumNous/new-api/relay/channel/vertex"
@@ -44,6 +55,7 @@ import (
 	"github.com/QuantumNous/new-api/relay/channel/xunfei"
 	"github.com/QuantumNous/new-api/relay/channel/zhipu"
 	"github.com/QuantumNous/new-api/relay/channel/zhipu_4v"
+	"github.com/QuantumNous/new-api/relay/channel/azureopenai"
 	"github.com/gin-gonic/gin"
 )
 
@@ -123,6 +135,30 @@ func GetAdaptor(apiType int) channel.Adaptor {
 		return &sub2api.Adaptor{}
 	case constant.APITypeNewAPI:
 		return &newapi.Adaptor{}
+	case constant.APITypeGroq:
+		return &groq.Adaptor{}
+	case constant.APITypeCerebras:
+		return &cerebras.Adaptor{}
+	case constant.APITypeFireworks:
+		return &fireworks.Adaptor{}
+	case constant.APITypeDeepInfra:
+		return &deepinfra.Adaptor{}
+	case constant.APITypeTogether:
+		return &together.Adaptor{}
+	case constant.APITypeHuggingFace:
+		return &huggingface.Adaptor{}
+	case constant.APITypeAzureOpenAI:
+		return &azureopenai.Adaptor{}
+	case constant.APITypeGoogleAI:
+		return &googleai.Adaptor{}
+	case constant.APITypeAI21:
+		return &ai21.Adaptor{}
+	case constant.APITypeAnyscale:
+		return &anyscale.Adaptor{}
+	case constant.APITypeMistralAI:
+		return &mistralai.Adaptor{}
+	case constant.APITypeDashScope:
+		return &dashscope.Adaptor{}
 	}
 	return nil
 }

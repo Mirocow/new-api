@@ -39,5 +39,17 @@ const (
 	APITypeAdvancedCustom
 	APITypeSub2API
 	APITypeNewAPI
+	APITypeGroq
+	APITypeCerebras
+	APITypeFireworks
+	APITypeDeepInfra
+	APITypeTogether
+	APITypeHuggingFace
+	APITypeAzureOpenAI
+	APITypeGoogleAI
+	APITypeAI21
+	APITypeAnyscale
+	APITypeMistralAI
+	APITypeDashScope
 	APITypeDummy // this one is only for count, do not add any channel after this
 )
