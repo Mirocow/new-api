@@ -157,6 +157,7 @@ var ChannelBaseURLs = []string{
 	"https://api.anyscale.com",                  //73 Anyscale
 	"https://api.mistral.ai",                    //74 Mistral AI
 	"https://dashscope.aliyuncs.com",            //75 DashScope
+	"https://router.requesty.ai/v1",         // 76 Requesty
 }
 
 func GetChannelBaseURL(channelType int) string {
