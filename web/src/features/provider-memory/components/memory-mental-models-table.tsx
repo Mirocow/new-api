@@ -1,3 +1,4 @@
+import { ChevronDown, ChevronRight, Plus, Trash2 } from 'lucide-react'
 /*
 Copyright (C) 2023-2026 QuantumNous
 
@@ -18,7 +19,6 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Plus, Trash2 } from 'lucide-react'
 
 import { StaticDataTable } from '@/components/data-table'
 import { EmptyState } from '@/components/empty-state'
@@ -37,7 +37,6 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import { Textarea } from '@/components/ui/textarea'
 import {
   TableBody,
   TableCell,
@@ -45,6 +44,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { Textarea } from '@/components/ui/textarea'
 import { toIntlLocale } from '@/i18n/languages'
 import { formatTimestampRelative } from '@/lib/format'
 
@@ -60,6 +60,7 @@ export function MemoryMentalModelsTable() {
   const upsert = useUpsertProviderMentalModel()
   const del = useDeleteProviderMentalModel()
   const [dialogOpen, setDialogOpen] = useState(false)
+  const [expandedKey, setExpandedKey] = useState<string | null>(null)
 
   // Form state
   const [sourceQuery, setSourceQuery] = useState('')
@@ -95,8 +96,11 @@ export function MemoryMentalModelsTable() {
     return (
       <Card>
         <CardContent className='space-y-3 py-4'>
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className='h-9 w-full rounded bg-muted animate-pulse' />
+          {[0, 1, 2].map((i) => (
+            <div
+              key={`mm-skel-${i}`}
+              className='bg-muted h-9 w-full animate-pulse rounded'
+            />
           ))}
         </CardContent>
       </Card>
@@ -211,6 +215,7 @@ export function MemoryMentalModelsTable() {
           <StaticDataTable tableClassName='min-w-[760px]'>
             <TableHeader>
               <TableRow className='bg-muted/40 hover:bg-muted/40'>
+                <TableHead className='h-9 w-8 px-4 text-xs'></TableHead>
                 <TableHead className='h-9 px-4 text-xs'>
                   {t('Source query')}
                 </TableHead>
@@ -219,9 +224,7 @@ export function MemoryMentalModelsTable() {
                 <TableHead className='h-9 text-xs'>
                   {t('Auto refresh')}
                 </TableHead>
-                <TableHead className='h-9 text-xs'>
-                  {t('Refreshed')}
-                </TableHead>
+                <TableHead className='h-9 text-xs'>{t('Refreshed')}</TableHead>
                 <TableHead className='h-9 w-[60px] px-4 text-xs'>
                   {t('')}
                 </TableHead>
@@ -229,56 +232,147 @@ export function MemoryMentalModelsTable() {
             </TableHeader>
             <TableBody>
               {rows.map((m) => (
-                <TableRow key={m.id} className='hover:bg-muted/30'>
-                  <TableCell className='px-4 py-2.5 font-mono text-xs'>
-                    {m.source_query}
-                  </TableCell>
-                  <TableCell className='py-2.5'>
-                    <Badge variant='outline' className='font-mono text-xs'>
-                      {m.scope_model}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className='text-muted-foreground py-2.5 text-xs'>
-                    {m.tags || '-'}
-                  </TableCell>
-                  <TableCell className='py-2.5'>
-                    {m.auto_refresh ? (
-                      <Badge variant='secondary' className='gap-1'>
-                        <span className='size-1.5 rounded-full bg-emerald-500' />
-                        {t('On')}
-                      </Badge>
-                    ) : (
-                      <span className='text-muted-foreground text-xs'>
-                        {t('Off')}
-                      </span>
-                    )}
-                  </TableCell>
-                  <TableCell
-                    className='text-muted-foreground py-2.5 text-xs whitespace-nowrap'
-                    title={new Date(m.refreshed_at * 1000).toISOString()}
+                <>
+                  <TableRow
+                    key={m.id}
+                    className='hover:bg-muted/30 cursor-pointer'
+                    onClick={() =>
+                      setExpandedKey(
+                        expandedKey === `${m.source_query}::${m.scope_model}`
+                          ? null
+                          : `${m.source_query}::${m.scope_model}`
+                      )
+                    }
                   >
-                    {formatTimestampRelative(
-                      m.refreshed_at,
-                      'seconds',
-                      toIntlLocale(i18n.language)
-                    )}
-                  </TableCell>
-                  <TableCell className='px-4 py-2.5'>
-                    <Button
-                      size='icon'
-                      variant='ghost'
-                      className='text-muted-foreground hover:text-destructive size-7'
-                      onClick={() => handleDelete(m.source_query, m.scope_model)}
+                    <TableCell className='px-4 py-2.5'>
+                      {expandedKey === `${m.source_query}::${m.scope_model}` ? (
+                        <ChevronDown className='size-4' />
+                      ) : (
+                        <ChevronRight className='size-4' />
+                      )}
+                    </TableCell>
+                    <TableCell className='px-4 py-2.5 font-mono text-xs'>
+                      {m.source_query}
+                    </TableCell>
+                    <TableCell className='py-2.5'>
+                      <Badge variant='outline' className='font-mono text-xs'>
+                        {m.scope_model}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className='text-muted-foreground py-2.5 text-xs'>
+                      {m.tags || '-'}
+                    </TableCell>
+                    <TableCell className='py-2.5'>
+                      {m.auto_refresh ? (
+                        <Badge variant='secondary' className='gap-1'>
+                          <span className='size-1.5 rounded-full bg-emerald-500' />
+                          {t('On')}
+                        </Badge>
+                      ) : (
+                        <span className='text-muted-foreground text-xs'>
+                          {t('Off')}
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell
+                      className='text-muted-foreground py-2.5 text-xs whitespace-nowrap'
+                      title={new Date(m.refreshed_at * 1000).toISOString()}
                     >
-                      <Trash2 className='size-3.5' aria-hidden='true' />
-                    </Button>
-                  </TableCell>
-                </TableRow>
+                      {formatTimestampRelative(
+                        m.refreshed_at,
+                        'seconds',
+                        toIntlLocale(i18n.language)
+                      )}
+                    </TableCell>
+                    <TableCell className='px-4 py-2.5'>
+                      <Button
+                        size='icon'
+                        variant='ghost'
+                        className='text-muted-foreground hover:text-destructive size-7'
+                        onClick={() =>
+                          handleDelete(m.source_query, m.scope_model)
+                        }
+                      >
+                        <Trash2 className='size-3.5' aria-hidden='true' />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                  {expandedKey === `${m.source_query}::${m.scope_model}` && (
+                    <TableRow key={`detail-${m.id}`} className='bg-muted/20'>
+                      <TableCell colSpan={7} className='px-4 py-3'>
+                        <MentalModelDetail m={m} />
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </>
               ))}
             </TableBody>
           </StaticDataTable>
         )}
       </CardContent>
     </Card>
+  )
+}
+
+// --- Mental model detail (expanded row) ---
+
+function MentalModelDetail({ m }: { m: import('../api').ProviderMentalModel }) {
+  const { t } = useTranslation()
+
+  let payload: unknown = m.payload
+  try {
+    payload = JSON.parse(m.payload)
+  } catch {
+    // keep raw
+  }
+
+  return (
+    <div className='space-y-3'>
+      {/* Content (markdown-like) */}
+      {m.content ? (
+        <div>
+          <h4 className='text-muted-foreground mb-1 text-xs font-semibold tracking-wide uppercase'>
+            {t('Content')}
+          </h4>
+          <pre className='bg-muted rounded-lg p-3 font-mono text-xs leading-relaxed break-words whitespace-pre-wrap'>
+            {m.content}
+          </pre>
+        </div>
+      ) : (
+        <p className='text-muted-foreground text-sm'>
+          {t('No content yet. Will be populated by the consolidation job.')}
+        </p>
+      )}
+
+      {/* Payload (structured rankings) */}
+      {m.payload && m.payload !== '[]' && (
+        <div>
+          <h4 className='text-muted-foreground mb-1 text-xs font-semibold tracking-wide uppercase'>
+            {t('Payload (rankings)')}
+          </h4>
+          <pre className='bg-muted overflow-x-auto rounded-lg p-3 text-xs'>
+            {typeof payload === 'object'
+              ? JSON.stringify(payload, null, 2)
+              : m.payload}
+          </pre>
+        </div>
+      )}
+
+      {/* Metadata */}
+      <div className='flex flex-wrap gap-4 text-xs'>
+        <span className='text-muted-foreground'>
+          {t('Tags')}: {m.tags || '—'}
+        </span>
+        <span className='text-muted-foreground'>
+          {t('Auto-refresh')}: {m.auto_refresh ? t('Yes') : t('No')}
+        </span>
+        <span className='text-muted-foreground'>
+          {t('Refreshed')}: {new Date(m.refreshed_at * 1000).toLocaleString()}
+        </span>
+        <span className='text-muted-foreground'>
+          {t('Created')}: {new Date(m.created_at * 1000).toLocaleString()}
+        </span>
+      </div>
+    </div>
   )
 }

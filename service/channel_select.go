@@ -347,6 +347,36 @@ func SelectChannelForRequest(c *gin.Context, modelName string, retry *RetryParam
 		}
 	}
 
+	// Provider memory routing hint: if no affinity pinned a channel yet,
+	// consult the mental model for the best-latency channel for this model.
+	// Only on the first attempt (retry == 0) to avoid fighting retry exclusion.
+	if channel == nil && retry.GetRetry() == 0 {
+		if hint, _ := BestChannelByLatency(modelName); hint != nil && len(hint.Rankings) > 0 {
+			best := hint.Rankings[0]
+			if best.ChannelId > 0 {
+				if preferred, err := model.CacheGetChannel(best.ChannelId); err == nil &&
+					preferred != nil && preferred.Status == common.ChannelStatusEnabled {
+					if ok, _ := model.ChannelSatisfiesFilters(preferred, modelName, constraints.Filters); ok {
+						if usingGroup == "auto" {
+							userGroup := common.GetContextKeyString(c, constant.ContextKeyUserGroup)
+							for _, g := range GetRequestAutoGroups(c, userGroup) {
+								if model.IsChannelEnabledForGroupModel(g, modelName, preferred.Id) {
+									selectGroup = g
+									common.SetContextKey(c, constant.ContextKeyAutoGroup, g)
+									channel = preferred
+									break
+								}
+							}
+						} else if model.IsChannelEnabledForGroupModel(usingGroup, modelName, preferred.Id) {
+							channel = preferred
+							selectGroup = usingGroup
+						}
+					}
+				}
+			}
+		}
+	}
+
 	if channel == nil {
 		var err error
 		channel, selectGroup, err = CacheGetRandomSatisfiedChannel(retry)

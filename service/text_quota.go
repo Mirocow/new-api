@@ -469,6 +469,10 @@ func PostTextConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, us
 		logger.LogError(ctx, common.LogText("error settling billing: %s", err.Error()))
 	}
 
+	// Retain a performance fact for the provider memory system.
+	// Runs async; never blocks the response.
+	retainProviderMemoryFact(ctx, relayInfo, true)
+
 	logModel := summary.ModelName
 	if strings.HasPrefix(logModel, "gpt-4-gizmo") {
 		logModel = "gpt-4-gizmo-*"

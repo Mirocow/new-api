@@ -47,6 +47,9 @@ type ProviderMemoryFact struct {
 	Entities   string `json:"entities" gorm:"type:varchar(512)"`
 	// Keywords for BM25-style recall: lowercased significant tokens joined by space.
 	Keywords   string `json:"keywords" gorm:"type:text"`
+	// Language detected from the request content (ISO 639-1 code: en, zh, ja, ...).
+	// Used for multilingual recall — facts are searchable in their original language.
+	Language   string `json:"language" gorm:"type:varchar(8)"`
 	Success    bool   `json:"success"`
 	RetainedAt int64  `json:"retained_at" gorm:"bigint;index"`
 	CreatedAt  int64  `json:"created_at" gorm:"bigint"`
@@ -110,7 +113,7 @@ func (ProviderMentalModel) TableName() string { return "provider_mental_models" 
 // RetainProviderFact stores one performance fact after a relay settles.
 // channelType, metrics, entities and keywords are normalized by the caller.
 func RetainProviderFact(channelId int, modelName string, channelType int,
-	metrics string, entities []string, keywords []string, success bool) error {
+	metrics string, entities []string, keywords []string, language string, success bool) error {
 	if channelId <= 0 || modelName == "" {
 		return nil
 	}
@@ -122,6 +125,7 @@ func RetainProviderFact(channelId int, modelName string, channelType int,
 		Metrics:     metrics,
 		Entities:    strings.Join(entities, ","),
 		Keywords:    strings.ToLower(strings.Join(keywords, " ")),
+		Language:    language,
 		Success:     success,
 		RetainedAt:  now,
 		CreatedAt:   now,

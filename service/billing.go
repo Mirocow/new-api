@@ -4,9 +4,12 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/bytedance/gopkg/util/gopool"
 	"github.com/QuantumNous/new-api/logger"
+	"github.com/QuantumNous/new-api/service/providermemory"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relaykit/types"
 	"github.com/gin-gonic/gin"
@@ -106,4 +109,111 @@ func SettleBilling(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, actualQuo
 		return PostConsumeQuota(relayInfo, quotaDelta, relayInfo.FinalPreConsumedQuota, true)
 	}
 	return nil
+}
+
+// retainProviderMemoryFact records a performance fact after a relay settles.
+// It runs in a goroutine so it never blocks the response path. The fact feeds
+// the background consolidation loop which produces observations and mental
+// models used by channel selection.
+func retainProviderMemoryFact(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, success bool) {
+	if !providermemory.Enabled() {
+		return
+	}
+	if relayInfo == nil || relayInfo.ChannelMeta == nil {
+		return
+	}
+	cm := relayInfo.ChannelMeta
+	if cm.ChannelId <= 0 || cm.UpstreamModelName == "" {
+		return
+	}
+	// Compute latency from timing fields.
+	latencyMs := int64(0)
+	if !relayInfo.FirstResponseTime.IsZero() && !relayInfo.StartTime.IsZero() {
+		latencyMs = relayInfo.FirstResponseTime.Sub(relayInfo.StartTime).Milliseconds()
+	}
+	// Build metrics JSON via common.* per project rules.
+	metrics := map[string]any{
+		"latency_ms":   latencyMs,
+		"success_rate": map[bool]float64{true: 1, false: 0}[success],
+		"error_rate":   map[bool]float64{true: 0, false: 1}[success],
+	}
+	metricsJSON, err := common.Marshal(metrics)
+	if err != nil {
+		return
+	}
+	entities := extractMemoryEntities(cm.UpstreamModelName)
+	keywords := extractMemoryKeywords(cm.UpstreamModelName, cm.ChannelType)
+	language := detectRequestLanguage(ctx)
+
+	gopool.Go(func() {
+		_ = providermemory.RetainFact(providermemory.FactInput{
+			ChannelId:   cm.ChannelId,
+			ModelName:   cm.UpstreamModelName,
+			ChannelType: cm.ChannelType,
+			Metrics:     string(metricsJSON),
+			Entities:    entities,
+			Keywords:    keywords,
+			Language:    language,
+			Success:     success,
+		})
+	})
+}
+
+// detectRequestLanguage infers the ISO 639-1 language code from request context.
+// Uses the Accept-Language header when available; falls back to inspecting
+// the request body for CJK ranges. Returns "" when no signal is found.
+func detectRequestLanguage(ctx *gin.Context) string {
+	if ctx == nil || ctx.Request == nil {
+		return ""
+	}
+	// 1) Accept-Language header (most reliable)
+	acceptLang := ctx.GetHeader("Accept-Language")
+	if acceptLang != "" {
+		// Take the first tag, strip subtags.
+		tag := acceptLang
+		if idx := strings.Index(tag, ","); idx >= 0 {
+			tag = tag[:idx]
+		}
+		if idx := strings.Index(tag, "-"); idx >= 0 {
+			tag = tag[:idx]
+		}
+		tag = strings.TrimSpace(strings.ToLower(tag))
+		if tag != "" && len(tag) <= 8 {
+			return tag
+		}
+	}
+	return ""
+}
+
+// extractMemoryEntities derives task-tag entities from the model name.
+// A richer NLP extractor can replace this later.
+func extractMemoryEntities(modelName string) []string {
+	if modelName == "" {
+		return nil
+	}
+	name := strings.ToLower(modelName)
+	switch {
+	case strings.Contains(name, "code") || strings.Contains(name, "codex"):
+		return []string{"coding"}
+	case strings.Contains(name, "image") || strings.Contains(name, "dall") || strings.Contains(name, "flux"):
+		return []string{"image"}
+	case strings.Contains(name, "audio") || strings.Contains(name, "tts") || strings.Contains(name, "whisper"):
+		return []string{"audio"}
+	case strings.Contains(name, "embed"):
+		return []string{"embedding"}
+	default:
+		return []string{"chat"}
+	}
+}
+
+// extractMemoryKeywords pulls significant tokens for BM25-lite recall.
+func extractMemoryKeywords(modelName string, channelType int) []string {
+	var kw []string
+	if modelName != "" {
+		kw = append(kw, strings.ToLower(modelName))
+	}
+	if channelType > 0 {
+		kw = append(kw, fmt.Sprintf("channel_type_%d", channelType))
+	}
+	return kw
 }

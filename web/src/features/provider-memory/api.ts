@@ -41,6 +41,7 @@ export interface ProviderMemoryFact {
   metrics: string
   entities: string
   keywords: string
+  language: string
   success: boolean
   retained_at: number
   created_at: number

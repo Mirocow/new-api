@@ -82,6 +82,9 @@ type FactInput struct {
 	Metrics  string
 	Entities []string // task tags: "coding","writing","image",...
 	Keywords []string // significant tokens for recall
+	// Language: ISO 639-1 code detected from request content (en, zh, ja, ...).
+	// Empty when detection is unavailable; recall falls back to keyword matching.
+	Language string
 	Success  bool
 }
 
@@ -94,7 +97,7 @@ func RetainFact(in FactInput) error {
 		return nil
 	}
 	return model.RetainProviderFact(in.ChannelId, in.ModelName, in.ChannelType,
-		in.Metrics, in.Entities, in.Keywords, in.Success)
+		in.Metrics, in.Entities, in.Keywords, in.Language, in.Success)
 }
 
 // --- Recall ---

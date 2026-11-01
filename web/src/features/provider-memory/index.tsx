@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import {
+  BookOpen,
   Brain,
   Database,
   Eye,
@@ -38,6 +39,7 @@ import {
 } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
+import { KnowledgePagesView } from './components/knowledge-pages-view'
 import { MemoryActionsBar } from './components/memory-actions-bar'
 import { MemoryConfigSection } from './components/memory-config-section'
 import { MemoryFactsTable } from './components/memory-facts-table'
@@ -71,6 +73,10 @@ export function ProviderMemoryDashboard() {
           {/* Tabbed tables */}
           <Tabs defaultValue='facts'>
             <TabsList>
+              <TabsTrigger value='knowledge-pages'>
+                <BookOpen className='mr-1.5 size-4' aria-hidden='true' />
+                {t('Knowledge Pages')}
+              </TabsTrigger>
               <TabsTrigger value='graph'>
                 <Network className='mr-1.5 size-4' aria-hidden='true' />
                 {t('Memory Graph')}
@@ -97,6 +103,9 @@ export function ProviderMemoryDashboard() {
               </TabsTrigger>
             </TabsList>
 
+            <TabsContent value='knowledge-pages'>
+              <KnowledgePagesView />
+            </TabsContent>
             <TabsContent value='graph'>
               <MemoryGraphView />
             </TabsContent>

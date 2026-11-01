@@ -239,6 +239,10 @@ func PostWssConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, mod
 		logger.LogError(ctx, common.LogText("error settling billing: %s", err.Error()))
 	}
 
+	// Retain a performance fact for the provider memory system.
+	retainProviderMemoryFact(ctx, relayInfo, true)
+
+
 	logModel := modelName
 	logContent = append(logContent, extraContent...)
 	other := GenerateWssOtherInfo(ctx, relayInfo, usage, modelRatio, groupRatio,
@@ -377,6 +381,9 @@ func PostAudioConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, u
 	if err := SettleBilling(ctx, relayInfo, quota); err != nil {
 		logger.LogError(ctx, common.LogText("error settling billing: %s", err.Error()))
 	}
+
+	// Retain a performance fact for the provider memory system.
+	retainProviderMemoryFact(ctx, relayInfo, true)
 
 	logModel := billingModelName
 	logContent = append(logContent, extraContent...)
