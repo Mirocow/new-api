@@ -173,8 +173,12 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 	}
 	relayInfo.RetryIndex = 0
 	relayInfo.LastError = nil
+	var prevChannel *model.Channel
 
 	for ; retryParam.GetRetry() <= common.RetryTimes; retryParam.IncreaseRetry() {
+		// Sync exclusion filter so retries don't select the same channel again
+		service.SyncExcludeChannelsFilter(c)
+
 		relayInfo.StreamStatus = nil
 		relayInfo.PerformanceBusinessRejection = false
 		relayInfo.PerformanceOutputTokens = 0
@@ -185,6 +189,12 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 			newAPIError = channelErr
 			break
 		}
+		// Если выбран тот же канал с multi-key polling, продвигаем индекс,
+		// чтобы ретрай использовал следующий ключ
+		if prevChannel != nil && prevChannel.Id == channel.Id && channel.ChannelInfo.IsMultiKey && channel.ChannelInfo.MultiKeyMode == constant.MultiKeyModePolling {
+			channel.ChannelInfo.MultiKeyPollingIndex = (channel.ChannelInfo.MultiKeyPollingIndex + 1) % len(channel.GetKeys())
+		}
+		prevChannel = channel
 		service.AppendUsedChannel(c, channel.Id)
 		if billingErr := service.PrepareTieredBillingForSelectedGroup(c, relayInfo); billingErr != nil {
 			newAPIError = billingErr
@@ -217,6 +227,7 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 		if newAPIError == nil {
 			service.MarkRequestPolicySuccess(c, relayInfo.StreamStatus)
 			relayInfo.LastError = nil
+			service.ResetPenaltyCountOnSuccess(channel.Id)
 			return
 		}
 
@@ -226,6 +237,13 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 		decision := service.DecideRelayRetry(c, newAPIError, common.RetryTimes-retryParam.GetRetry())
 		service.RecordPolicyFailure(c, channel.Id, newAPIError, decision)
 		processChannelError(c, *types.NewChannelError(channel.Id, channel.Type, channel.Name, channel.ChannelInfo.IsMultiKey, common.GetContextKeyString(c, constant.ContextKeyChannelKey), channel.GetAutoBan()), newAPIError, relayInfo)
+
+		// Penalize channel if error matches penalty criteria
+		if service.ShouldPenalizeChannel(newAPIError) {
+			duration := service.GetPenaltyDuration()
+			reason := newAPIError.MaskSensitiveErrorWithStatusCode(common.UpstreamAddresses(c)...)
+			service.PenalizeChannel(channel.Id, duration, reason)
+		}
 
 		if decision.Action != "retry" {
 			break

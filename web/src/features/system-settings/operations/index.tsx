@@ -63,6 +63,12 @@ const defaultOperationsSettings: OperationsSettings = {
   'perf_metrics_setting.flush_interval': 5,
   'perf_metrics_setting.bucket_time': 'hour',
   'perf_metrics_setting.retention_days': 0,
+  // Channel penalty settings
+  'channel_penalty_setting.enabled': false,
+  'channel_penalty_setting.status_codes': '500,502,503,504',
+  'channel_penalty_setting.duration': 60,
+  'channel_penalty_setting.max_penalties': 3,
+  'channel_penalty_setting.recovery_threshold': 5,
 }
 
 export function OperationsSettings() {

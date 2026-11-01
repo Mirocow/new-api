@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 /* eslint-disable react-refresh/only-export-components */
-import { useQueryClient } from '@tanstack/react-query'
+import { useQueryClient, useQuery } from '@tanstack/react-query'
 import type { ColumnDef } from '@tanstack/react-table'
 import {
   AlertTriangle,
@@ -60,7 +60,7 @@ import {
 } from '@/lib/server-error-message'
 import { truncateText } from '@/lib/utils'
 
-import { getCodexUsage, updateChannelBalance } from '../api'
+import { getCodexUsage, updateChannelBalance, getChannelPenaltyStats, type ChannelPenaltyInfo } from '../api'
 import {
   CHANNEL_STATUS_CONFIG,
   CHANNEL_TYPE_TASK_PLUGIN,
@@ -627,6 +627,24 @@ export function useChannelsColumns(
   const { sensitiveVisible } = useChannels()
   const enableSelection = options.enableSelection ?? true
   const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
+
+  // Fetch penalty stats for all channels
+  const { data: penaltyStats = [] } = useQuery({
+    queryKey: ['channel-penalty-stats'],
+    queryFn: getChannelPenaltyStats,
+    refetchInterval: 30000, // Refetch every 30 seconds
+    staleTime: 10000,
+  })
+
+  // Create a map for quick lookup
+  const penaltyMap = useMemo(() => {
+    const map = new Map<number, ChannelPenaltyInfo>()
+    for (const penalty of penaltyStats) {
+      map.set(penalty.channel_id, penalty)
+    }
+    return map
+  }, [penaltyStats])
+
   // The column definitions only depend on the translation function, the active
   // locale, and sensitive-data visibility. Memoizing keeps the array (and every
   // cell renderer reference) stable across unrelated re-renders, so react-table
@@ -1044,6 +1062,96 @@ export function useChannelsColumns(
             }
           }
 
+          // Check if channel is penalized
+          const penalty = penaltyMap.get(channel.id)
+          const isPenalized = !!penalty
+
+          // If penalized, show penalty badge alongside status
+          if (isPenalized) {
+            const remainingMinutes = Math.ceil(penalty.remaining_seconds / 60)
+            const penaltyLabel = t('Penalized')
+            const penaltyTooltip = t('Penalty reason: {{reason}}\nRemaining: {{minutes}} min\nCount: {{count}}', {
+              reason: penalty.reason,
+              minutes: remainingMinutes,
+              count: penalty.penalty_count,
+            })
+
+            return (
+              <TooltipProvider delay={100}>
+                <Tooltip>
+                  <TooltipTrigger render={<span />}> 
+                    <div className='flex items-center gap-1.5'>
+                      <StatusBadge
+                        label={label}
+                        variant={config.variant}
+                        size='sm'
+                        copyable={false}
+                      />
+                      <StatusBadge
+                        label={penaltyLabel}
+                        variant='warning'
+                        size='sm'
+                        copyable={false}
+                        showDot={false}
+                        className='cursor-help'
+                      />
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side='top' className='max-w-xs'>
+                    <div className='space-y-1 text-xs'>
+                      <div>{penaltyTooltip}</div>
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )
+          }
+
+          // Check if channel is penalized
+          const penalty = penaltyMap.get(channel.id)
+          const isPenalized = !!penalty
+
+          // If penalized, show penalty badge alongside status
+          if (isPenalized) {
+            const remainingMinutes = Math.ceil(penalty.remaining_seconds / 60)
+            const penaltyLabel = t('Penalized')
+            const penaltyTooltip = t('Penalty reason: {{reason}}\nRemaining: {{minutes}} min\nCount: {{count}}', {
+              reason: penalty.reason,
+              minutes: remainingMinutes,
+              count: penalty.penalty_count,
+            })
+
+            return (
+              <TooltipProvider delay={100}>
+                <Tooltip>
+                  <TooltipTrigger render={<span />}> 
+                    <div className='flex items-center gap-1.5'>
+                      <StatusBadge
+                        label={label}
+                        variant={config.variant}
+                        size='sm'
+                        copyable={false}
+                      />
+                      <StatusBadge
+                        label={penaltyLabel}
+                        variant='warning'
+                        size='sm'
+                        copyable={false}
+                        showDot={false}
+                        className='cursor-help'
+                      />
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side='top' className='max-w-xs'>
+                    <div className='space-y-1 text-xs'>
+                      <div>{penaltyTooltip}</div>
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )
+          }
+
           return (
             <StatusBadge
               label={label}
@@ -1268,6 +1376,6 @@ export function useChannelsColumns(
         meta: { pinned: 'right' as const },
       },
     ],
-    [enableSelection, t, locale, sensitiveVisible]
+    [enableSelection, t, locale, sensitiveVisible, penaltyMap]
   )
 }

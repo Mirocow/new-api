@@ -704,6 +704,42 @@ export async function getOllamaVersion(
 export const getGroups = getUserGroups
 
 // ============================================================================
+// Channel Penalty
+// ============================================================================
+
+export type ChannelPenaltyInfo = {
+  channel_id: number
+  channel_name?: string
+  remaining_seconds: number
+  reason: string
+  penalty_count: number
+}
+
+/**
+ * Get all penalized channels
+ */
+export async function getChannelPenaltyStats(): Promise<ChannelPenaltyInfo[]> {
+  const res = await api.get('/api/option/channel_penalty')
+  return res.data.data || []
+}
+
+/**
+ * Clear penalty for a specific channel
+ */
+export async function clearChannelPenalty(channelId: number): Promise<{ success: boolean; message?: string }> {
+  const res = await api.delete(`/api/option/channel_penalty/${channelId}`)
+  return res.data
+}
+
+/**
+ * Clear all channel penalties
+ */
+export async function clearAllChannelPenalties(): Promise<{ success: boolean; message?: string }> {
+  const res = await api.delete('/api/option/channel_penalty')
+  return res.data
+}
+
+// ============================================================================
 // Prefill Groups (Model Groups)
 // ============================================================================
 

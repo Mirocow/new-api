@@ -23,6 +23,7 @@ import { WorkerSettingsSection } from '../integrations/worker-settings-section'
 import { LogSettingsSection } from '../maintenance/log-settings-section'
 import { PerformanceSection } from '../maintenance/performance-section'
 import { UpdateCheckerSection } from '../maintenance/update-checker-section'
+import { ChannelPenaltySection } from './channel-penalty-section'
 import type { OperationsSettings } from '../types'
 import { createSectionRegistry } from '../utils/section-registry'
 
@@ -149,6 +150,26 @@ const OPERATIONS_SECTIONS = [
       <UpdateCheckerSection
         currentVersion={currentVersion}
         startTime={startTime}
+      />
+    ),
+  },
+  {
+    id: 'channel-penalty',
+    titleKey: 'Channel Penalty',
+    build: (settings: OperationsSettings) => (
+      <ChannelPenaltySection
+        defaultValues={{
+          'channel_penalty_setting.enabled':
+            settings['channel_penalty_setting.enabled'] ?? false,
+          'channel_penalty_setting.status_codes':
+            settings['channel_penalty_setting.status_codes'] ?? '500,502,503,504',
+          'channel_penalty_setting.duration':
+            settings['channel_penalty_setting.duration'] ?? 60,
+          'channel_penalty_setting.max_penalties':
+            settings['channel_penalty_setting.max_penalties'] ?? 3,
+          'channel_penalty_setting.recovery_threshold':
+            settings['channel_penalty_setting.recovery_threshold'] ?? 5,
+        }}
       />
     ),
   },

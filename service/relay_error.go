@@ -97,3 +97,6 @@ func ProcessChannelError(c *gin.Context, channelError types.ChannelError, err *t
 		model.RecordErrorLog(c, userId, channelError.ChannelId, modelName, tokenName, err.MaskSensitiveErrorWithStatusCode(upstreamURLs...), tokenId, useTimeSeconds, common.GetContextKeyBool(c, constant.ContextKeyIsStream), userGroup, other)
 	}
 }
+
+// ShouldPenalizeChannel determines if a channel should be penalized based on the error.
+// This is called after a relay attempt fails to decide if the channel should be temporarily excluded.

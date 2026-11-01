@@ -34,7 +34,8 @@ var alwaysSkipRetryStatusCodes = map[int]struct{}{
 }
 
 var alwaysSkipRetryCodes = map[types.ErrorCode]struct{}{
-	types.ErrorCodeBadResponseBody: {},
+	// ErrorCodeBadResponseBody убран: решение о ретрае основывается на HTTP статус-коде ответа.
+	// 200 → не повторять, 429/500 → повторять, 400 → не повторять.
 }
 
 func AutomaticDisableStatusCodesToString() string {
@@ -112,6 +113,12 @@ func shouldMatchStatusCodeRanges(ranges []StatusCodeRange, code int) bool {
 		}
 	}
 	return false
+}
+
+// ShouldMatchStatusCodeRanges checks if a status code matches any of the given ranges.
+// This is a public version of shouldMatchStatusCodeRanges for use by other packages.
+func ShouldMatchStatusCodeRanges(ranges []StatusCodeRange, code int) bool {
+	return shouldMatchStatusCodeRanges(ranges, code)
 }
 
 func ParseHTTPStatusCodeRanges(input string) ([]StatusCodeRange, error) {

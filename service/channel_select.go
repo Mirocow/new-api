@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
@@ -390,3 +391,29 @@ func pinnedChannelUnavailable(pin dto.ChannelPin, statusCode int, messageID stri
 func AppendUsedChannel(c *gin.Context, channelID int) {
 	c.Set("use_channel", append(c.GetStringSlice("use_channel"), fmt.Sprintf("%d", channelID)))
 }
+
+// SyncExcludeChannelsFilter syncs the exclude channels filter from the use_channel trail.
+// This ensures that retries don't select the same channel again.
+func SyncExcludeChannelsFilter(c *gin.Context) {
+	constraints := GetChannelConstraints(c)
+	used := c.GetStringSlice("use_channel")
+	var ids []int
+	for _, s := range used {
+		var id int
+		if _, err := fmt.Sscanf(s, "%d", &id); err == nil {
+			ids = append(ids, id)
+		}
+	}
+	// Remove old exclude filter
+	constraints.Filters = slices.DeleteFunc(constraints.Filters, func(f dto.ChannelFilter) bool {
+		return f.Kind == dto.FilterExcludeChannels
+	})
+	if len(ids) > 0 {
+		constraints.AddFilter(dto.ChannelFilter{
+			Kind:              dto.FilterExcludeChannels,
+			ExcludeChannelIDs: ids,
+		})
+	}
+}
+
+

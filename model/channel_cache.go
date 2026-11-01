@@ -14,6 +14,7 @@ import (
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/logger"
 	kitdto "github.com/QuantumNous/new-api/relaykit/dto"
+	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 )
 
@@ -139,6 +140,21 @@ func GetRandomSatisfiedChannel(
 
 	if len(channels) == 0 {
 		return nil, nil
+	}
+
+	// Filter out penalized channels if penalty setting is enabled
+	setting := operation_setting.GetChannelPenaltySetting()
+	if setting.Enabled {
+		nonPenalized := make([]int, 0, len(channels))
+		for _, id := range channels {
+			if !IsChannelPenalized(id) {
+				nonPenalized = append(nonPenalized, id)
+			}
+		}
+		// Fallback: if ALL channels penalized, use all (degraded > unavailable)
+		if len(nonPenalized) > 0 {
+			channels = nonPenalized
+		}
 	}
 
 	if len(channels) == 1 {

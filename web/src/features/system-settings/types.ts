@@ -394,6 +394,12 @@ export type OperationsSettings = {
   'perf_metrics_setting.flush_interval': number
   'perf_metrics_setting.bucket_time': 'hour' | 'minute' | '5min'
   'perf_metrics_setting.retention_days': number
+  // Channel penalty settings
+  'channel_penalty_setting.enabled': boolean
+  'channel_penalty_setting.status_codes': string
+  'channel_penalty_setting.duration': number
+  'channel_penalty_setting.max_penalties': number
+  'channel_penalty_setting.recovery_threshold': number
 }
 
 export type SecuritySettings = {
