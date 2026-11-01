@@ -20,6 +20,19 @@ import {
   CHANNEL_TYPES,
   CHANNEL_TYPE_VLLM,
   CHANNEL_TYPE_SGLANG,
+  CHANNEL_TYPE_GROQ,
+  CHANNEL_TYPE_CEREBRAS,
+  CHANNEL_TYPE_FIREWORKS,
+  CHANNEL_TYPE_DEEPINFRA,
+  CHANNEL_TYPE_TOGETHER,
+  CHANNEL_TYPE_HUGGINGFACE,
+  CHANNEL_TYPE_AZURE_OPENAI,
+  CHANNEL_TYPE_GOOGLE_AI,
+  CHANNEL_TYPE_AI21,
+  CHANNEL_TYPE_ANYSCALE,
+  CHANNEL_TYPE_MISTRAL_AI,
+  CHANNEL_TYPE_DASHSCOPE,
+  CHANNEL_TYPE_REQUESTY,
 } from '../constants'
 
 // ============================================================================
@@ -178,6 +191,137 @@ export const CHANNEL_TYPE_CONFIGS: Record<number, ChannelTypeConfig> = {
       baseUrl: 'Base URL is required for this channel type',
       key: 'Enter API key for this channel',
       models: 'Models',
+    },
+  },
+  [CHANNEL_TYPE_GROQ]: {
+    id: CHANNEL_TYPE_GROQ,
+    name: CHANNEL_TYPES[CHANNEL_TYPE_GROQ],
+    icon: 'Groq',
+    hints: {
+      baseUrl: 'https://api.groq.com',
+      key: 'Groq API Key',
+      models: 'llama-3.3-70b-versatile,llama-3.1-70b-versatile,mixtral-8x7b-32768',
+    },
+  },
+  [CHANNEL_TYPE_CEREBRAS]: {
+    id: CHANNEL_TYPE_CEREBRAS,
+    name: CHANNEL_TYPES[CHANNEL_TYPE_CEREBRAS],
+    icon: 'Cerebras',
+    hints: {
+      baseUrl: 'https://api.cerebras.ai',
+      key: 'Cerebras API Key',
+      models: 'llama3.1-70b,llama3.1-8b',
+    },
+  },
+  [CHANNEL_TYPE_FIREWORKS]: {
+    id: CHANNEL_TYPE_FIREWORKS,
+    name: CHANNEL_TYPES[CHANNEL_TYPE_FIREWORKS],
+    icon: 'Fireworks',
+    hints: {
+      baseUrl: 'https://api.fireworks.ai',
+      key: 'Fireworks API Key',
+      models: 'accounts/fireworks/models/llama-v3p1-70b-instruct,accounts/fireworks/models/mixtral-8x7b-instruct',
+    },
+  },
+  [CHANNEL_TYPE_DEEPINFRA]: {
+    id: CHANNEL_TYPE_DEEPINFRA,
+    name: CHANNEL_TYPES[CHANNEL_TYPE_DEEPINFRA],
+    icon: 'DeepInfra',
+    hints: {
+      baseUrl: 'https://api.deepinfra.com',
+      key: 'DeepInfra API Key',
+      models: 'meta-llama/Meta-Llama-3.1-70B-Instruct,mistralai/Mixtral-8x7B-Instruct-v0.1',
+    },
+  },
+  [CHANNEL_TYPE_TOGETHER]: {
+    id: CHANNEL_TYPE_TOGETHER,
+    name: CHANNEL_TYPES[CHANNEL_TYPE_TOGETHER],
+    icon: 'Together',
+    hints: {
+      baseUrl: 'https://api.together.xyz',
+      key: 'Together API Key',
+      models: 'meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo,mistralai/Mixtral-8x7B-Instruct-v0.1',
+    },
+  },
+  [CHANNEL_TYPE_HUGGINGFACE]: {
+    id: CHANNEL_TYPE_HUGGINGFACE,
+    name: CHANNEL_TYPES[CHANNEL_TYPE_HUGGINGFACE],
+    icon: 'HuggingFace',
+    hints: {
+      baseUrl: 'https://api-inference.huggingface.co',
+      key: 'Hugging Face API Token',
+      models: 'meta-llama/Meta-Llama-3.1-70B-Instruct,mistralai/Mixtral-8x7B-Instruct-v0.1',
+    },
+  },
+  [CHANNEL_TYPE_AZURE_OPENAI]: {
+    id: CHANNEL_TYPE_AZURE_OPENAI,
+    name: CHANNEL_TYPES[CHANNEL_TYPE_AZURE_OPENAI],
+    icon: 'azure',
+    requiresRegion: true,
+    hints: {
+      baseUrl: 'Azure OpenAI Endpoint (e.g., https://your-resource.openai.azure.com)',
+      key: 'Azure API Key',
+      models: 'Deployment names (gpt-4o,gpt-4o-mini,etc.)',
+    },
+  },
+  [CHANNEL_TYPE_GOOGLE_AI]: {
+    id: CHANNEL_TYPE_GOOGLE_AI,
+    name: CHANNEL_TYPES[CHANNEL_TYPE_GOOGLE_AI],
+    icon: 'google',
+    hints: {
+      baseUrl: 'https://generativelanguage.googleapis.com',
+      key: 'Google AI API Key',
+      models: 'gemini-1.5-pro,gemini-1.5-flash,gemini-2.0-flash-exp',
+    },
+  },
+  [CHANNEL_TYPE_AI21]: {
+    id: CHANNEL_TYPE_AI21,
+    name: CHANNEL_TYPES[CHANNEL_TYPE_AI21],
+    icon: 'Ai21',
+    hints: {
+      baseUrl: 'https://api.ai21.com',
+      key: 'AI21 API Key',
+      models: 'jamba-1.5-large,jamba-1.5-mini',
+    },
+  },
+  [CHANNEL_TYPE_ANYSCALE]: {
+    id: CHANNEL_TYPE_ANYSCALE,
+    name: CHANNEL_TYPES[CHANNEL_TYPE_ANYSCALE],
+    icon: 'Anyscale',
+    hints: {
+      baseUrl: 'https://api.anyscale.com',
+      key: 'Anyscale API Key',
+      models: 'meta-llama/Meta-Llama-3.1-70B-Instruct,mistralai/Mixtral-8x7B-Instruct-v0.1',
+    },
+  },
+  [CHANNEL_TYPE_MISTRAL_AI]: {
+    id: CHANNEL_TYPE_MISTRAL_AI,
+    name: CHANNEL_TYPES[CHANNEL_TYPE_MISTRAL_AI],
+    icon: 'Mistral',
+    hints: {
+      baseUrl: 'https://api.mistral.ai',
+      key: 'Mistral API Key',
+      models: 'mistral-large-latest,mistral-small-latest,codestral-latest',
+    },
+  },
+  [CHANNEL_TYPE_DASHSCOPE]: {
+    id: CHANNEL_TYPE_DASHSCOPE,
+    name: CHANNEL_TYPES[CHANNEL_TYPE_DASHSCOPE],
+    icon: 'DashScope',
+    hints: {
+      baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+      key: 'DashScope API Key',
+      models: 'qwen-max,qwen-plus,qwen-turbo,qwen2.5-72b-instruct',
+    },
+  },
+  [CHANNEL_TYPE_REQUESTY]: {
+    id: CHANNEL_TYPE_REQUESTY,
+    name: CHANNEL_TYPES[CHANNEL_TYPE_REQUESTY],
+    icon: 'Requesty',
+    hints: {
+      baseUrl: 'https://router.requesty.ai/v1',
+      key: 'Requesty API Key',
+      models: 'requesty-default,requesty-cheap,requesty-fast,requesty-smart',
     },
   },
 }
