@@ -7358,6 +7358,18 @@
     "Zhipu": "Zhipu",
     "Zhipu GLM": "Zhipu GLM",
     "Zhipu V4": "Zhipu V4",
-    "Zoom": "Zoom"
+    "Zoom": "Zoom",
+    "Memory Graph": "Граф памяти",
+    "Score": "Оценка",
+    "Error rate": "Доля ошибок",
+    "Sample size": "Размер выборки",
+    "Filter by model": "Фильтр по модели",
+    "Higher is better": "Чем выше, тем лучше",
+    "Lower is better": "Чем ниже, тем лучше",
+    "Raw Facts (Retain)": "Сырые факты (Retain)",
+    "Observations (Reflect)": "Наблюдения (Reflect)",
+    "Mental Models (Routing)": "Ментальные модели (маршрутизация)",
+    "No memory data yet. Enable Provider Memory, let requests flow, then run consolidation.": "Данных памяти пока нет. Включите Provider Memory, дождитесь запросов и запустите консолидацию.",
+    "Failed to load memory graph": "Не удалось загрузить граф памяти"
   }
 }

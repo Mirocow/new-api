@@ -7358,6 +7358,18 @@
     "Zhipu": "智谱",
     "Zhipu GLM": "智谱GLM",
     "Zhipu V4": "智谱 V4",
-    "Zoom": "缩放"
+    "Zoom": "缩放",
+    "Memory Graph": "记忆图谱",
+    "Score": "评分",
+    "Error rate": "错误率",
+    "Sample size": "样本数",
+    "Filter by model": "按模型筛选",
+    "Higher is better": "越高越好",
+    "Lower is better": "越低越好",
+    "Raw Facts (Retain)": "原始事实（保留）",
+    "Observations (Reflect)": "观测（反思）",
+    "Mental Models (Routing)": "心智模型（路由）",
+    "No memory data yet. Enable Provider Memory, let requests flow, then run consolidation.": "暂无记忆数据。请启用 Provider Memory，等待请求流入后执行整合。",
+    "Failed to load memory graph": "加载记忆图谱失败"
   }
 }

@@ -7358,6 +7358,18 @@
     "Zhipu": "Zhipu",
     "Zhipu GLM": "Zhipu GLM",
     "Zhipu V4": "Zhipu V4",
-    "Zoom": "Zoom"
+    "Zoom": "Zoom",
+    "Memory Graph": "Đồ thị bộ nhớ",
+    "Score": "Điểm",
+    "Error rate": "Tỷ lệ lỗi",
+    "Sample size": "Kích thước mẫu",
+    "Filter by model": "Lọc theo mô hình",
+    "Higher is better": "Cao hơn là tốt hơn",
+    "Lower is better": "Thấp hơn là tốt hơn",
+    "Raw Facts (Retain)": "Sự kiện thô (Retain)",
+    "Observations (Reflect)": "Quan sát (Reflect)",
+    "Mental Models (Routing)": "Mô hình tâm trí (định tuyến)",
+    "No memory data yet. Enable Provider Memory, let requests flow, then run consolidation.": "Chưa có dữ liệu bộ nhớ. Bật Provider Memory, cho yêu cầu chạy qua, rồi thực hiện hợp nhất.",
+    "Failed to load memory graph": "Không tải được đồ thị bộ nhớ"
   }
 }

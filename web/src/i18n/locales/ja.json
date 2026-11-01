@@ -7358,6 +7358,18 @@
     "Zhipu": "Zhipu",
     "Zhipu GLM": "Zhipu GLM",
     "Zhipu V4": "Zhipu V 4",
-    "Zoom": "ズーム"
+    "Zoom": "ズーム",
+    "Memory Graph": "メモリグラフ",
+    "Score": "スコア",
+    "Error rate": "エラー率",
+    "Sample size": "サンプル数",
+    "Filter by model": "モデルで絞り込み",
+    "Higher is better": "高いほど良い",
+    "Lower is better": "低いほど良い",
+    "Raw Facts (Retain)": "生のファクト（Retain）",
+    "Observations (Reflect)": "観測（Reflect）",
+    "Mental Models (Routing)": "メンタルモデル（ルーティング）",
+    "No memory data yet. Enable Provider Memory, let requests flow, then run consolidation.": "メモリデータがまだありません。Provider Memory を有効にし、リクエストを流した後、統合を実行してください。",
+    "Failed to load memory graph": "メモリグラフの読み込みに失敗しました"
   }
 }

@@ -16,7 +16,15 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Brain, Database, Eye, Settings, Sparkles, Zap } from 'lucide-react'
+import {
+  Brain,
+  Database,
+  Eye,
+  Network,
+  Settings,
+  Sparkles,
+  Zap,
+} from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { SectionPageLayout } from '@/components/layout'
@@ -30,12 +38,13 @@ import {
 } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
-import { MemoryStatsCards } from './components/memory-stats-cards'
+import { MemoryActionsBar } from './components/memory-actions-bar'
 import { MemoryConfigSection } from './components/memory-config-section'
 import { MemoryFactsTable } from './components/memory-facts-table'
-import { MemoryObservationsTable } from './components/memory-observations-table'
+import { MemoryGraphView } from './components/memory-graph-view'
 import { MemoryMentalModelsTable } from './components/memory-mental-models-table'
-import { MemoryActionsBar } from './components/memory-actions-bar'
+import { MemoryObservationsTable } from './components/memory-observations-table'
+import { MemoryStatsCards } from './components/memory-stats-cards'
 
 export function ProviderMemoryDashboard() {
   const { t } = useTranslation()
@@ -44,10 +53,8 @@ export function ProviderMemoryDashboard() {
     <SectionPageLayout>
       <SectionPageLayout.Title>
         <span className='inline-flex min-w-0 items-center gap-2'>
-          <Brain className='size-5 text-primary' aria-hidden='true' />
-          <span className='truncate'>
-            {t('Provider Memory')}
-          </span>
+          <Brain className='text-primary size-5' aria-hidden='true' />
+          <span className='truncate'>{t('Provider Memory')}</span>
           <Badge variant='outline' className='shrink-0'>
             Root
           </Badge>
@@ -64,6 +71,10 @@ export function ProviderMemoryDashboard() {
           {/* Tabbed tables */}
           <Tabs defaultValue='facts'>
             <TabsList>
+              <TabsTrigger value='graph'>
+                <Network className='mr-1.5 size-4' aria-hidden='true' />
+                {t('Memory Graph')}
+              </TabsTrigger>
               <TabsTrigger value='facts'>
                 <Database className='mr-1.5 size-4' aria-hidden='true' />
                 {t('Facts')}
@@ -86,6 +97,9 @@ export function ProviderMemoryDashboard() {
               </TabsTrigger>
             </TabsList>
 
+            <TabsContent value='graph'>
+              <MemoryGraphView />
+            </TabsContent>
             <TabsContent value='facts'>
               <MemoryFactsTable />
             </TabsContent>
