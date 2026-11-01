@@ -38,6 +38,32 @@ export const CHANNEL_TYPE_VLLM = 62
 
 export const CHANNEL_TYPE_SGLANG = 63
 
+export const CHANNEL_TYPE_GROQ = 64
+
+export const CHANNEL_TYPE_CEREBRAS = 65
+
+export const CHANNEL_TYPE_FIREWORKS = 66
+
+export const CHANNEL_TYPE_DEEPINFRA = 67
+
+export const CHANNEL_TYPE_TOGETHER = 68
+
+export const CHANNEL_TYPE_HUGGINGFACE = 69
+
+export const CHANNEL_TYPE_AZURE_OPENAI = 70
+
+export const CHANNEL_TYPE_GOOGLE_AI = 71
+
+export const CHANNEL_TYPE_AI21 = 72
+
+export const CHANNEL_TYPE_ANYSCALE = 73
+
+export const CHANNEL_TYPE_MISTRAL_AI = 74
+
+export const CHANNEL_TYPE_DASHSCOPE = 75
+
+export const CHANNEL_TYPE_REQUESTY = 76
+
 export const CHANNEL_TYPES = {
   0: 'Unknown',
   1: 'OpenAI',
@@ -99,6 +125,19 @@ export const CHANNEL_TYPES = {
   61: 'Task Plugin',
   62: 'vLLM',
   63: 'SGLang',
+  64: 'Groq',
+  65: 'Cerebras',
+  66: 'Fireworks AI',
+  67: 'DeepInfra',
+  68: 'Together AI',
+  69: 'Hugging Face',
+  70: 'Azure OpenAI',
+  71: 'Google AI',
+  72: 'AI21',
+  73: 'Anyscale',
+  74: 'Mistral AI',
+  75: 'DashScope',
+  76: 'Requesty',
 } as const
 
 export type ChannelProviderPresentation = {
