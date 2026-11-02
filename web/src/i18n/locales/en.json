@@ -5389,6 +5389,8 @@
     "Response Model": "Response Model",
     "Response model mismatch": "Response model mismatch",
     "Response model: {{model}}": "Response model: {{model}}",
+    "Upstream model: {{model}}": "Upstream model: {{model}}",
+    "The upstream provider called a different model than requested.": "The upstream provider called a different model than requested.",
     "Response Time": "Response Time",
     "Response time: {{duration}}": "Response time: {{duration}}",
     "Response too large": "Response too large",

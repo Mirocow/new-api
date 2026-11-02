@@ -5389,6 +5389,8 @@
     "Response Model": "応答モデル",
     "Response model mismatch": "応答モデルの不一致",
     "Response model: {{model}}": "応答モデル：{{model}}",
+    "Upstream model: {{model}}": "Upstream model: {{model}}",
+    "The upstream provider called a different model than requested.": "The upstream provider called a different model than requested.",
     "Response Time": "応答時間",
     "Response time: {{duration}}": "応答時間: {{duration}}",
     "Response too large": "応答が大きすぎます",

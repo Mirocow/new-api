@@ -129,6 +129,11 @@ export function ModelBadge(props: ModelBadgeProps) {
     return <ModelBadgeContent {...props} copyable />
   }
 
+  const upstreamModelDiffers = props.actualModel && props.actualModel !== props.modelName
+  const upstreamModelLabel = upstreamModelDiffers
+    ? t('Upstream model: {{model}}', { model: props.actualModel })
+    : ''
+
   const content = (
     <>
       <ModelBadgeContent {...props} copyable={false} />
@@ -140,7 +145,16 @@ export function ModelBadge(props: ModelBadgeProps) {
           copyable={false}
         />
       )}
-      {!mismatch && props.actualModel && (
+      {upstreamModelDiffers && !mismatch && (
+        <StatusBadge
+          icon={Route}
+          label={upstreamModelLabel}
+          variant='outline'
+          copyable={false}
+          className='text-xs'
+        />
+      )}
+      {!mismatch && !upstreamModelDiffers && props.actualModel && (
         <Route
           className='text-muted-foreground size-3 shrink-0'
           aria-hidden='true'
@@ -191,12 +205,22 @@ export function ModelBadge(props: ModelBadgeProps) {
             </div>
             <div className='flex items-start justify-between gap-3'>
               <span className='text-muted-foreground text-xs'>
-                {t('Actual Model:')}
+                {t('Upstream Model:')}
               </span>
-              <span className='truncate font-mono text-xs font-medium'>
+              <span
+                className={cn(
+                  'truncate font-mono text-xs font-medium',
+                  upstreamModelDiffers && 'text-primary'
+                )}
+              >
                 {props.actualModel}
               </span>
             </div>
+            {upstreamModelDiffers && (
+              <p className='text-primary text-xs font-medium'>
+                {t('The upstream provider called a different model than requested.')}
+              </p>
+            )}
           </div>
         )}
       </PopoverContent>

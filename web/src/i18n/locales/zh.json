@@ -5389,6 +5389,8 @@
     "Response Model": "响应模型",
     "Response model mismatch": "响应模型不一致",
     "Response model: {{model}}": "响应模型：{{model}}",
+    "Upstream model: {{model}}": "Upstream model: {{model}}",
+    "The upstream provider called a different model than requested.": "The upstream provider called a different model than requested.",
     "Response Time": "响应时间",
     "Response time: {{duration}}": "响应时间：{{duration}}",
     "Response too large": "响应过大",

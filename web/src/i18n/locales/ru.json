@@ -5389,6 +5389,8 @@
     "Response Model": "Модель в ответе",
     "Response model mismatch": "Несовпадение модели в ответе",
     "Response model: {{model}}": "Модель в ответе: {{model}}",
+    "Upstream model: {{model}}": "Upstream model: {{model}}",
+    "The upstream provider called a different model than requested.": "The upstream provider called a different model than requested.",
     "Response Time": "Время ответа",
     "Response time: {{duration}}": "Время ответа: {{duration}}",
     "Response too large": "Ответ слишком большой",
