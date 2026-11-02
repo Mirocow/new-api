@@ -64,6 +64,8 @@ export const CHANNEL_TYPE_DASHSCOPE = 75
 
 export const CHANNEL_TYPE_REQUESTY = 76
 
+export const CHANNEL_TYPE_CURSOR = 77
+
 export const CHANNEL_TYPES = {
   0: 'Unknown',
   1: 'OpenAI',
@@ -138,6 +140,7 @@ export const CHANNEL_TYPES = {
   74: 'Mistral AI',
   75: 'DashScope',
   76: 'Requesty',
+  77: 'Cursor (x.ai Grok)',
 } as const
 
 export type ChannelProviderPresentation = {
@@ -221,6 +224,20 @@ export const CHANNEL_PROVIDER_PRESENTATION: Partial<
   },
   62: { descriptionKey: 'Connect to self-hosted models served by vLLM' },
   63: { descriptionKey: 'Connect to self-hosted models served by SGLang' },
+  64: { descriptionKey: 'Connect to Groq ultra-fast inference services' },
+  65: { descriptionKey: 'Connect to Cerebras high-performance inference' },
+  66: { descriptionKey: 'Connect to Fireworks AI model inference platform' },
+  67: { descriptionKey: 'Connect to DeepInfra low-cost model inference' },
+  68: { descriptionKey: 'Connect to Together AI model inference platform' },
+  69: { descriptionKey: 'Connect to Hugging Face Inference Endpoints' },
+  70: { descriptionKey: 'Connect to Azure OpenAI Service' },
+  71: { descriptionKey: 'Connect to Google AI (Gemini) models' },
+  72: { descriptionKey: 'Connect to AI21 Labs model services' },
+  73: { descriptionKey: 'Connect to Anyscale Ray-based model serving' },
+  74: { descriptionKey: 'Connect to Mistral AI model services' },
+  75: { descriptionKey: 'Connect to Alibaba Cloud DashScope model services' },
+  76: { descriptionKey: 'Connect to Requesty router for multiple AI providers' },
+  77: { descriptionKey: 'Connect to Cursor using x.ai Grok models' },
 } satisfies Record<
   Exclude<keyof typeof CHANNEL_TYPES, 0 | typeof CHANNEL_TYPE_TASK_PLUGIN>,
   ChannelProviderPresentation
@@ -230,6 +247,7 @@ const CHANNEL_TYPE_DISPLAY_ORDER: number[] = [
   1, 14, 24, 33, 43, 3, 41, 17, 45, 25, 26, 23, 48, 60, 58, 59, 61, 42, 34, 20,
   4, 62, 40, 27, 15, 46, 18, 31, 35, 49, 19, 47, 37, 38, 39, 11, 8, 57, 22, 21,
   44, 2, 5, 36, 50, 51, 52, 53, 54, 55, 56,
+  77,
 ]
 
 export const CHANNEL_TYPE_OPTIONS: { value: number; label: string }[] = (() => {
@@ -566,6 +584,7 @@ export const MODEL_FETCHABLE_TYPES = new Set([
   60,
   CHANNEL_TYPE_VLLM,
   CHANNEL_TYPE_SGLANG,
+  CHANNEL_TYPE_CURSOR,
 ])
 
 export const FIELD_PASSTHROUGH_TYPES = new Set([
@@ -577,6 +596,7 @@ export const FIELD_PASSTHROUGH_TYPES = new Set([
   CHANNEL_TYPE_NEW_API,
   CHANNEL_TYPE_VLLM,
   CHANNEL_TYPE_SGLANG,
+  CHANNEL_TYPE_CURSOR,
 ])
 
 export const OPENAI_FIELD_PASSTHROUGH_TYPES = new Set([
@@ -587,6 +607,7 @@ export const OPENAI_FIELD_PASSTHROUGH_TYPES = new Set([
   CHANNEL_TYPE_NEW_API,
   CHANNEL_TYPE_VLLM,
   CHANNEL_TYPE_SGLANG,
+  CHANNEL_TYPE_CURSOR,
 ])
 
 export const CLAUDE_FIELD_PASSTHROUGH_TYPES = new Set([

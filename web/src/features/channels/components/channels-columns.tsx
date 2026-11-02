@@ -1107,51 +1107,6 @@ export function useChannelsColumns(
             )
           }
 
-          // Check if channel is penalized
-          const penalty = penaltyMap.get(channel.id)
-          const isPenalized = !!penalty
-
-          // If penalized, show penalty badge alongside status
-          if (isPenalized) {
-            const remainingMinutes = Math.ceil(penalty.remaining_seconds / 60)
-            const penaltyLabel = t('Penalized')
-            const penaltyTooltip = t('Penalty reason: {{reason}}\nRemaining: {{minutes}} min\nCount: {{count}}', {
-              reason: penalty.reason,
-              minutes: remainingMinutes,
-              count: penalty.penalty_count,
-            })
-
-            return (
-              <TooltipProvider delay={100}>
-                <Tooltip>
-                  <TooltipTrigger render={<span />}> 
-                    <div className='flex items-center gap-1.5'>
-                      <StatusBadge
-                        label={label}
-                        variant={config.variant}
-                        size='sm'
-                        copyable={false}
-                      />
-                      <StatusBadge
-                        label={penaltyLabel}
-                        variant='warning'
-                        size='sm'
-                        copyable={false}
-                        showDot={false}
-                        className='cursor-help'
-                      />
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent side='top' className='max-w-xs'>
-                    <div className='space-y-1 text-xs'>
-                      <div>{penaltyTooltip}</div>
-                    </div>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            )
-          }
-
           return (
             <StatusBadge
               label={label}

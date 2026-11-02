@@ -30,6 +30,164 @@ type ModelProviderRule = ModelProvider & {
   fallbackPattern?: RegExp
 }
 
+// Provider prefixes that should take precedence (hosted models)
+// These are checked FIRST before stripping prefixes
+const HOSTED_PROVIDER_PREFIXES: readonly (readonly [string, string])[] = [
+  ['nvidia/', 'NVIDIA'],
+  ['perplexity/', 'Perplexity'],
+  ['azure/', 'OpenAI'], // Azure OpenAI
+  ['aws/', 'Amazon'], // AWS Bedrock
+  ['gcp/', 'Gemini'], // Google Cloud Vertex AI
+  ['cloudflare/', 'Cloudflare'],
+  ['cohere/', 'Cohere'],
+  ['ai21/', 'AI21 Labs'],
+  ['mistralai/', 'Mistral'],
+  ['stabilityai/', 'Stability AI'],
+  ['nousresearch/', 'Nous Research'],
+  ['midjourney/', 'Midjourney'],
+  ['kling/', 'Kling'],
+  ['vidu/', 'Vidu'],
+  ['suno/', 'Suno'],
+  ['jimeng/', 'Jimeng'],
+  ['01-ai/', 'Yi'],
+  ['zhipu/', 'Zhipu'],
+  ['baidu/', 'Baidu'],
+  ['iflytek/', 'iFlytek'],
+  ['tencent/', 'Tencent'],
+  ['baichuan/', 'Baichuan'],
+  ['internlm/', 'InternLM'],
+  ['stepfun/', 'StepFun'],
+  ['minimax/', 'MiniMax'],
+  ['doubao/', 'Doubao'],
+  ['moonshot/', 'Moonshot'],
+  ['qwen/', 'Qwen'],
+  ['deepseek/', 'DeepSeek'],
+  ['yi/', 'Yi'],
+  ['x-ai/', 'xAI'],
+  ['xai/', 'xAI'],
+  ['zai-org/', 'Zhipu'],
+  ['thudm/', 'Zhipu'],
+  ['clef/', 'Cloudflare'],
+  ['black-forest-labs/', 'Black Forest Labs'],
+  ['jinaai/', 'Jina'],
+  ['baai/', 'BAAI'],
+  // Additional inference platforms
+  ['replicate/', 'Replicate'],
+  ['together/', 'Together AI'],
+  ['fireworks/', 'Fireworks AI'],
+  ['deepinfra/', 'DeepInfra'],
+  ['anyscale/', 'Anyscale'],
+  ['huggingface/', 'Hugging Face'],
+  ['groq/', 'Groq'],
+  ['cerebras/', 'Cerebras'],
+  ['sambanova/', 'SambaNova'],
+  ['nebius/', 'Nebius'],
+  ['lambda/', 'Lambda Labs'],
+  ['octoai/', 'OctoAI'],
+  ['predibase/', 'Predibase'],
+  ['monsterapi/', 'Monster API'],
+  ['novita/', 'Novita AI'],
+  ['inference/', 'Inference.net'],
+  ['workers-ai/', 'Workers AI'],
+  ['github/', 'GitHub Models'],
+  ['azure-ai/', 'Azure AI'],
+  ['vertex-ai/', 'Vertex AI'],
+  ['siliconflow/', 'SiliconFlow'],
+  ['dashscope/', 'DashScope'],
+  ['ali/', 'DashScope'],
+  ['sagemaker/', 'SageMaker'],
+  ['triton/', 'Triton'],
+  ['requesty/', 'Requesty'],
+  ['cursor/', 'Cursor'],
+] as const
+
+// Common provider prefixes to strip from model names before matching
+// (used when no hosted provider prefix matches)
+const PROVIDER_PREFIXES = [
+  'openai/',
+  'anthropic/',
+  'google/',
+  'meta-llama/',
+  'microsoft/',
+  'amazon/',
+  'cohere/',
+  'ai21/',
+  'stabilityai/',
+  'nousresearch/',
+  'midjourney/',
+  'kling/',
+  'vidu/',
+  'suno/',
+  'jimeng/',
+  '01-ai/',
+  'zhipu/',
+  'baidu/',
+  'iflytek/',
+  'tencent/',
+  'baichuan/',
+  'internlm/',
+  'stepfun/',
+  'minimax/',
+  'doubao/',
+  'moonshot/',
+  'qwen/',
+  'deepseek/',
+  'yi/',
+  'nvidia/',
+  'perplexity/',
+  'x-ai/',
+  'xai/',
+  'zai-org/',
+  'thudm/',
+  'clef/',
+  'black-forest-labs/',
+  'jinaai/',
+  'baai/',
+  // Additional inference platforms
+  'replicate/',
+  'together/',
+  'fireworks/',
+  'deepinfra/',
+  'anyscale/',
+  'huggingface/',
+  'groq/',
+  'cerebras/',
+  'sambanova/',
+  'nebius/',
+  'lambda/',
+  'octoai/',
+  'predibase/',
+  'monsterapi/',
+  'novita/',
+  'inference/',
+  'workers-ai/',
+  'github/',
+  'azure-ai/',
+  'vertex-ai/',
+  'siliconflow/',
+  'dashscope/',
+  'ali/',
+  'sagemaker/',
+  'triton/',
+  'requesty/',
+  'cursor/',
+] as const
+
+function normalizeModelNameForMatching(modelName: string): string {
+  let normalized = modelName.trim().toLowerCase()
+  // Strip known provider prefixes
+  for (const prefix of PROVIDER_PREFIXES) {
+    if (normalized.startsWith(prefix)) {
+      normalized = normalized.slice(prefix.length)
+      break
+    }
+  }
+  // Remove version suffixes like :latest, :v1, -v1, etc.
+  normalized = normalized.replace(/:.*$/, '')
+  normalized = normalized.replace(/[-_]v\d+$/, '')
+  return normalized
+}
+
 // Match specific providers before overlapping model families: 360gpt before
 // GPT, and Perplexity's Sonar / NVIDIA's Nemotron before Llama or Mixtral.
 const MODEL_PROVIDER_RULES: readonly ModelProviderRule[] = [
@@ -37,7 +195,7 @@ const MODEL_PROVIDER_RULES: readonly ModelProviderRule[] = [
   {
     name: 'Perplexity',
     icon: 'Perplexity.Color',
-    keywords: ['perplexity', 'sonar-'],
+    keywords: ['perplexity', 'sonar-', 'sonar.'],
   },
   {
     name: 'NVIDIA',
@@ -57,7 +215,7 @@ const MODEL_PROVIDER_RULES: readonly ModelProviderRule[] = [
   {
     name: 'Cloudflare',
     icon: 'Cloudflare.Color',
-    keywords: ['clef'],
+    keywords: ['clef', '@cf/'],
   },
   {
     name: 'OpenAI',
@@ -89,6 +247,9 @@ const MODEL_PROVIDER_RULES: readonly ModelProviderRule[] = [
       'babbage-',
       'computer-use-preview',
       'sora',
+      'o1-',
+      'o3-',
+      'o4-',
     ],
     pattern: /(?:^|[/.:])(?:o(?:1|3|4)(?=$|[-.:])|tts-)/,
   },
@@ -109,6 +270,7 @@ const MODEL_PROVIDER_RULES: readonly ModelProviderRule[] = [
       'veo',
       'nano-banana',
       'palm-',
+      'aqa',
     ],
     pattern: /(?:^|[/.:])aqa$/,
   },
@@ -154,7 +316,7 @@ const MODEL_PROVIDER_RULES: readonly ModelProviderRule[] = [
     name: 'Yi',
     icon: 'Yi.Color',
     fallbackKeywords: ['yi-'],
-    keywords: ['01-ai/'],
+    keywords: ['01-ai/', 'yi-'],
     pattern: /(?:^|[/.:])yi(?=$|[-_])/,
   },
   {
@@ -190,7 +352,7 @@ const MODEL_PROVIDER_RULES: readonly ModelProviderRule[] = [
     name: 'Meta',
     icon: 'Meta.Color',
     fallbackKeywords: ['meta-'],
-    keywords: ['meta-llama', 'meta/', 'muse-', 'llama-', 'llama2', 'llama3'],
+    keywords: ['meta-llama', 'meta/', 'muse-', 'llama-', 'llama2', 'llama3', 'llama4'],
   },
   {
     name: 'Cohere',
@@ -208,7 +370,7 @@ const MODEL_PROVIDER_RULES: readonly ModelProviderRule[] = [
   {
     name: 'Microsoft',
     icon: 'Microsoft.Color',
-    keywords: ['microsoft/'],
+    keywords: ['microsoft/', 'phi-', 'wizardlm', 'orca-'],
     pattern: /(?:^|[/.:])phi(?=$|[-._])/,
   },
   {
@@ -220,12 +382,12 @@ const MODEL_PROVIDER_RULES: readonly ModelProviderRule[] = [
   {
     name: 'Stability AI',
     icon: 'Stability.Color',
-    keywords: ['stabilityai', 'stable-diffusion', 'stable-image', 'sdxl-'],
+    keywords: ['stabilityai', 'stable-diffusion', 'stable-image', 'sdxl-', 'sd3-', 'cosxl'],
   },
   {
     name: 'Nous Research',
     icon: 'NousResearch',
-    keywords: ['nousresearch', 'hermes-'],
+    keywords: ['nousresearch', 'hermes-', 'nemotron-3-ultra'],
   },
   {
     name: 'Midjourney',
@@ -236,24 +398,167 @@ const MODEL_PROVIDER_RULES: readonly ModelProviderRule[] = [
   { name: 'Vidu', icon: 'Vidu.Color', keywords: ['vidu'] },
   { name: 'Suno', icon: 'Suno', keywords: ['suno'] },
   { name: 'Jimeng', icon: 'Jimeng.Color', keywords: ['jimeng'] },
+  // Additional inference platforms
+  {
+    name: 'Replicate',
+    icon: 'Replicate',
+    keywords: ['replicate/'],
+  },
+  {
+    name: 'Together AI',
+    icon: 'Together',
+    keywords: ['together/'],
+  },
+  {
+    name: 'Fireworks AI',
+    icon: 'Fireworks',
+    keywords: ['fireworks/'],
+  },
+  {
+    name: 'DeepInfra',
+    icon: 'DeepInfra',
+    keywords: ['deepinfra/'],
+  },
+  {
+    name: 'Anyscale',
+    icon: 'Anyscale',
+    keywords: ['anyscale/'],
+  },
+  {
+    name: 'Hugging Face',
+    icon: 'HuggingFace',
+    keywords: ['huggingface/'],
+  },
+  {
+    name: 'Groq',
+    icon: 'Groq',
+    keywords: ['groq/'],
+  },
+  {
+    name: 'Cerebras',
+    icon: 'Cerebras',
+    keywords: ['cerebras/'],
+  },
+  {
+    name: 'SambaNova',
+    icon: 'SambaNova',
+    keywords: ['sambanova/'],
+  },
+  {
+    name: 'Nebius',
+    icon: 'Nebius',
+    keywords: ['nebius/'],
+  },
+  {
+    name: 'Lambda Labs',
+    icon: 'Lambda',
+    keywords: ['lambda/'],
+  },
+  {
+    name: 'OctoAI',
+    icon: 'OctoAI',
+    keywords: ['octoai/'],
+  },
+  {
+    name: 'Predibase',
+    icon: 'Predibase',
+    keywords: ['predibase/'],
+  },
+  {
+    name: 'Monster API',
+    icon: 'MonsterAPI',
+    keywords: ['monsterapi/'],
+  },
+  {
+    name: 'Novita AI',
+    icon: 'Novita',
+    keywords: ['novita/'],
+  },
+  {
+    name: 'Inference.net',
+    icon: 'InferenceNet',
+    keywords: ['inference/'],
+  },
+  {
+    name: 'Workers AI',
+    icon: 'Cloudflare.Color',
+    keywords: ['workers-ai/'],
+  },
+  {
+    name: 'GitHub Models',
+    icon: 'GitHub',
+    keywords: ['github/'],
+  },
+  {
+    name: 'Azure AI',
+    icon: 'Azure.Color',
+    keywords: ['azure-ai/'],
+  },
+  {
+    name: 'Vertex AI',
+    icon: 'VertexAI.Color',
+    keywords: ['vertex-ai/'],
+  },
+  {
+    name: 'SiliconFlow',
+    icon: 'SiliconFlow',
+    keywords: ['siliconflow/'],
+  },
+  {
+    name: 'DashScope',
+    icon: 'DashScope.Color',
+    keywords: ['dashscope/', 'ali/'],
+  },
+  {
+    name: 'SageMaker',
+    icon: 'Aws.Color',
+    keywords: ['sagemaker/'],
+  },
+  {
+    name: 'Triton',
+    icon: 'Nvidia.Color',
+    keywords: ['triton/'],
+  },
+  {
+    name: 'Requesty',
+    icon: 'RiRouterLine',
+    keywords: ['requesty/'],
+  },
+  {
+    name: 'Cursor',
+    icon: 'RiCursorLine',
+    keywords: ['cursor/'],
+  },
 ]
 
 export function resolveModelProvider(modelName: string): ModelProvider | null {
   const model = modelName.trim().toLowerCase()
+
+  // First, check for hosted provider prefixes (these take precedence)
+  for (const [prefix, providerName] of HOSTED_PROVIDER_PREFIXES) {
+    if (model.startsWith(prefix)) {
+      const provider = MODEL_PROVIDER_RULES.find((rule) => rule.name === providerName)
+      if (provider) {
+        return provider
+      }
+    }
+  }
+
+  // Then normalize and match by model name
+  const normalized = normalizeModelNameForMatching(modelName)
 
   // The broader log aliases are fallbacks so text-embedding-v3 stays Qwen
   // and step-tts-mini stays StepFun instead of matching OpenAI first.
   return (
     MODEL_PROVIDER_RULES.find(
       (rule) =>
-        rule.keywords?.some((keyword) => model.includes(keyword)) ||
-        rule.pattern?.test(model)
+        rule.keywords?.some((keyword) => normalized.includes(keyword)) ||
+        rule.pattern?.test(normalized)
     ) ??
     MODEL_PROVIDER_RULES.find(
       (rule) =>
-        rule.fallbackKeywords?.some((keyword) => model.includes(keyword)) ||
-        rule.fallbackPattern?.test(model)
-    ) ??
-    null
+        rule.fallbackKeywords?.some((keyword) => normalized.includes(keyword)) ||
+        rule.fallbackPattern?.test(normalized)
+    ) ?? null
   )
 }

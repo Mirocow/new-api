@@ -74,6 +74,7 @@ const (
 	ChannelTypeMistralAI      = 74
 	ChannelTypeDashScope      = 75
 	ChannelTypeRequesty       = 76
+	ChannelTypeCursor         = 77
 	ChannelTypeDummy          // this one is only for count, do not add any channel after this
 
 )
@@ -158,6 +159,7 @@ var ChannelBaseURLs = []string{
 	"https://api.mistral.ai",                    //74 Mistral AI
 	"https://dashscope.aliyuncs.com",            //75 DashScope
 	"https://router.requesty.ai/v1",         // 76 Requesty
+	"https://api.x.ai/v1",                 // 77 Cursor (x.ai Grok)
 }
 
 func GetChannelBaseURL(channelType int) string {
@@ -241,6 +243,7 @@ var ChannelTypeNames = map[int]string{
 	ChannelTypeMistralAI:      "Mistral AI",
 	ChannelTypeDashScope:      "DashScope",
 	ChannelTypeRequesty:       "Requesty",
+	ChannelTypeCursor:         "Cursor (x.ai Grok)",
 }
 
 func GetChannelTypeName(channelType int) string {
