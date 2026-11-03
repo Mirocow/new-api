@@ -318,6 +318,10 @@ func SelectChannelForRequest(c *gin.Context, modelName string, retry *RetryParam
 			if err == nil && preferred != nil && preferred.Status == common.ChannelStatusEnabled {
 				affinitySatisfied, _ = model.ChannelSatisfiesFilters(preferred, modelName, constraints.Filters)
 			}
+			// Skip affinity channel if its circuit breaker is open.
+			if affinitySatisfied && !IsChannelHealthy(preferred.Id) {
+				affinitySatisfied = false
+			}
 			if affinitySatisfied {
 				if usingGroup == "auto" {
 					userGroup := common.GetContextKeyString(c, constant.ContextKeyUserGroup)
@@ -356,7 +360,7 @@ func SelectChannelForRequest(c *gin.Context, modelName string, retry *RetryParam
 			if best.ChannelId > 0 {
 				if preferred, err := model.CacheGetChannel(best.ChannelId); err == nil &&
 					preferred != nil && preferred.Status == common.ChannelStatusEnabled {
-					if ok, _ := model.ChannelSatisfiesFilters(preferred, modelName, constraints.Filters); ok {
+					if ok, _ := model.ChannelSatisfiesFilters(preferred, modelName, constraints.Filters); ok && IsChannelHealthy(preferred.Id) {
 						if usingGroup == "auto" {
 							userGroup := common.GetContextKeyString(c, constant.ContextKeyUserGroup)
 							for _, g := range GetRequestAutoGroups(c, userGroup) {
@@ -391,6 +395,15 @@ func SelectChannelForRequest(c *gin.Context, modelName string, retry *RetryParam
 			}
 		}
 		if channel == nil {
+			return nil, selectGroup, &ChannelSelectError{
+				StatusCode: http.StatusServiceUnavailable, Code: types.ErrorCodeModelNotFound, MessageID: i18n.MsgDistributorNoAvailableChannel,
+				Params: map[string]any{"Group": usingGroup, "Model": modelName}, NoAvailableChannel: true,
+			}
+		}
+		// Circuit breaker: a randomly selected channel whose breaker is fully
+		// open (not half-open) is skipped so the retry loop picks a different
+		// one. Half-open lets exactly one test request through.
+		if !IsChannelHealthy(channel.Id) {
 			return nil, selectGroup, &ChannelSelectError{
 				StatusCode: http.StatusServiceUnavailable, Code: types.ErrorCodeModelNotFound, MessageID: i18n.MsgDistributorNoAvailableChannel,
 				Params: map[string]any{"Group": usingGroup, "Model": modelName}, NoAvailableChannel: true,
@@ -445,5 +458,3 @@ func SyncExcludeChannelsFilter(c *gin.Context) {
 		})
 	}
 }
-
-

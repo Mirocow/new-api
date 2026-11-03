@@ -228,6 +228,7 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 			service.MarkRequestPolicySuccess(c, relayInfo.StreamStatus)
 			relayInfo.LastError = nil
 			service.ResetPenaltyCountOnSuccess(channel.Id)
+			service.OnChannelSuccess(channel.Id)
 			return
 		}
 
@@ -237,6 +238,7 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 		decision := service.DecideRelayRetry(c, newAPIError, common.RetryTimes-retryParam.GetRetry())
 		service.RecordPolicyFailure(c, channel.Id, newAPIError, decision)
 		processChannelError(c, *types.NewChannelError(channel.Id, channel.Type, channel.Name, channel.ChannelInfo.IsMultiKey, common.GetContextKeyString(c, constant.ContextKeyChannelKey), channel.GetAutoBan()), newAPIError, relayInfo)
+		service.OnChannelFailure(channel.Id)
 
 		// Penalize channel if error matches penalty criteria
 		if service.ShouldPenalizeChannel(newAPIError) {
@@ -606,6 +608,7 @@ func executeTaskSubmissionWith(
 		}
 		if taskErr == nil {
 			diagnostics.attemptSucceeded(retryParam.GetRetry()+1, result)
+			service.OnChannelSuccess(channel.Id)
 			break
 		}
 
@@ -619,6 +622,7 @@ func executeTaskSubmissionWith(
 					common.GetContextKeyString(c, constant.ContextKeyChannelKey), channel.GetAutoBan()),
 				taskAPIError,
 				relayInfo)
+			service.OnChannelFailure(channel.Id)
 		}
 
 		willRetry := decision.Action == "retry"
