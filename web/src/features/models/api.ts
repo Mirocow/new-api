@@ -689,6 +689,8 @@ export interface ModelRequestLogEntry {
   request_id: string
   upstream_request_id: string
   other: string
+  reject_reason?: string
+  error_message?: string
 }
 
 export interface GetModelRequestHistoryResponse {
@@ -703,6 +705,37 @@ export interface GetModelRequestHistoryResponse {
 
 export async function getModelRequestHistory(modelName: string, limit = 100): Promise<GetModelRequestHistoryResponse> {
   const res = await api.get(`/api/models/${encodeURIComponent(modelName)}/history`, { params: { limit } })
+  return res.data
+}
+
+export interface ModelFailoverEvent {
+  request_id: string
+  model_name: string
+  total_attempts: number
+  channels_tried: number[]
+  channel_names: string[]
+  final_channel_id: number
+  final_channel_name: string
+  success: boolean
+  first_attempt_at: number
+  last_attempt_at: number
+  reject_reasons: string[]
+  error_messages: string[]
+  duration_ms: number
+}
+
+export interface GetModelFailoverHistoryResponse {
+  success: boolean
+  message?: string
+  data?: {
+    model_name: string
+    failovers: ModelFailoverEvent[]
+    total: number
+  }
+}
+
+export async function getModelFailoverHistory(modelName: string, limit = 200): Promise<GetModelFailoverHistoryResponse> {
+  const res = await api.get(`/api/models/${encodeURIComponent(modelName)}/failovers`, { params: { limit } })
   return res.data
 }
 export interface ModelDeleteResult {

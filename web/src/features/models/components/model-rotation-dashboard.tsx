@@ -27,10 +27,10 @@ import { StatusBadge } from '@/components/status-badge'
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip'
 import { Input } from '@/components/ui/input'
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select'
-import { Search as SearchIcon, BarChart2, AlertTriangle, CheckCircle, XCircle, HelpCircle, ArrowRight, Shuffle, Layers, Filter, RefreshCw, History, Clock } from 'lucide-react'
+import { Search as SearchIcon, BarChart2, AlertTriangle, CheckCircle, XCircle, HelpCircle, ArrowRight, Shuffle, Layers, Filter, RefreshCw, History, Clock, AlertCircle, GitBranch } from 'lucide-react'
 import { formatNumber, formatTimestampToDate } from '@/lib/format'
 
-import { getModels, getModelChannels, getModelRequestHistory, type ModelChannelInfo, type ModelRequestLogEntry } from '../api'
+import { getModels, getModelChannels, getModelRequestHistory, getModelFailoverHistory, type ModelChannelInfo, type ModelRequestLogEntry, type ModelFailoverEvent } from '../api'
 import type { Model } from '../types'
 
 function formatLatency(ms?: number): string {
@@ -103,6 +103,8 @@ export function ModelRotationDashboard() {
   const [retryLevel, setRetryLevel] = useState(0)
   const [historyLogs, setHistoryLogs] = useState<ModelRequestLogEntry[]>([])
   const [historyLoading, setHistoryLoading] = useState(false)
+  const [failoverLogs, setFailoverLogs] = useState<ModelFailoverEvent[]>([])
+  const [failoverLoading, setFailoverLoading] = useState(false)
 
   // Fetch all models
   const { data: modelsData, isLoading: modelsLoading } = useQuery({
@@ -235,6 +237,12 @@ export function ModelRotationDashboard() {
       if (res.data?.logs) setHistoryLogs(res.data.logs)
       setHistoryLoading(false)
     }).catch(() => setHistoryLoading(false))
+    // Fetch failovers
+    setFailoverLoading(true)
+    getModelFailoverHistory(model.model.model_name, 200).then(res => {
+      if (res.data?.failovers) setFailoverLogs(res.data.failovers)
+      setFailoverLoading(false)
+    }).catch(() => setFailoverLoading(false))
   }
 
   const getPriorityChannels = (priorityLevel: number) => {

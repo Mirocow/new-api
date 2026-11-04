@@ -67,14 +67,24 @@ export function useDashboardWS(options: UseDashboardWSOptions = {}) {
   }, [onUsageLogCreated, onAuditLogCreated, onSystemInstanceUpdated, onSystemInstanceDeleted])
 
   const connect = useCallback(() => {
-    if (!enabled || !token) return
+    if (!enabled) {
+      console.log('[useDashboardWS] Not enabled, skipping connection')
+      return
+    }
+    if (!token) {
+      console.log('[useDashboardWS] No token available, skipping connection')
+      return
+    }
 
+    console.log('[useDashboardWS] Connecting to WebSocket...')
     // Pass token as query parameter since browsers can't send custom headers during WebSocket handshake
     const wsUrl = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/api/ws/dashboard?token=${encodeURIComponent(token)}`
+    console.log('[useDashboardWS] WebSocket URL:', wsUrl.replace(token, '***'))
     const ws = new WebSocket(wsUrl)
     wsRef.current = ws
 
     ws.onopen = () => {
+      console.log('[useDashboardWS] WebSocket connected')
       setIsConnected(true)
       setLastError(null)
       reconnectAttempts.current = 0
@@ -83,6 +93,7 @@ export function useDashboardWS(options: UseDashboardWSOptions = {}) {
     ws.onmessage = (event) => {
       try {
         const data: DashboardWSEvent = JSON.parse(event.data)
+        console.log('[useDashboardWS] Received message:', data.type)
         switch (data.type) {
           case 'usage_log_created':
             handlersRef.current.onUsageLogCreated?.(data.payload)
@@ -98,21 +109,24 @@ export function useDashboardWS(options: UseDashboardWSOptions = {}) {
             break
         }
       } catch (err) {
-        console.error('Failed to parse dashboard WS message:', err)
+        console.error('[useDashboardWS] Failed to parse dashboard WS message:', err)
       }
     }
 
     ws.onerror = (err) => {
+      console.error('[useDashboardWS] WebSocket error:', err)
       setLastError(new Error('WebSocket error'))
     }
 
-    ws.onclose = () => {
+    ws.onclose = (event) => {
+      console.log('[useDashboardWS] WebSocket closed:', event.code, event.reason)
       setIsConnected(false)
       wsRef.current = null
 
       if (enabled && token) {
         const delay = Math.min(1000 * 2 ** reconnectAttempts.current, 30000)
         reconnectAttempts.current += 1
+        console.log('[useDashboardWS] Reconnecting in', delay, 'ms (attempt', reconnectAttempts.current, ')')
         reconnectTimeoutRef.current = setTimeout(connect, delay)
       }
     }
@@ -133,10 +147,12 @@ export function useDashboardWS(options: UseDashboardWSOptions = {}) {
     if (enabled && token) {
       connect()
     } else {
+      console.log('[useDashboardWS] Effect cleanup/disconnect, enabled:', enabled, 'token:', !!token)
       disconnect()
     }
 
     return () => {
+      console.log('[useDashboardWS] Cleanup')
       disconnect()
     }
   }, [enabled, token, connect, disconnect])

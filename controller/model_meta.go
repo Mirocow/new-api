@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"encoding/json"
 	"net/http"
 	"sort"
 	"strconv"
@@ -550,10 +551,14 @@ func GetModelRequestHistory(c *gin.Context) {
 		RequestId         string `json:"request_id"`
 		UpstreamRequestId string `json:"upstream_request_id"`
 		Other             string `json:"other"`
+		// Parsed from Other
+		RejectReason string `json:"reject_reason,omitempty"`
+		ErrorMessage string `json:"error_message,omitempty"`
 	}
 
 	var result []LogEntry
 	for _, log := range logs {
+		rejectReason, errorMessage := parseLogOther(log.Other)
 		result = append(result, LogEntry{
 			Id:                log.Id,
 			CreatedAt:         log.CreatedAt,
@@ -570,6 +575,8 @@ func GetModelRequestHistory(c *gin.Context) {
 			RequestId:         log.RequestId,
 			UpstreamRequestId: log.UpstreamRequestId,
 			Other:             log.Other,
+			RejectReason:      rejectReason,
+			ErrorMessage:      errorMessage,
 		})
 	}
 
@@ -577,5 +584,161 @@ func GetModelRequestHistory(c *gin.Context) {
 		"model_name": modelName,
 		"logs":       result,
 		"total":      len(result),
+	})
+}
+
+// parseLogOther extracts reject_reason and error_message from the Other JSON field.
+func parseLogOther(other string) (rejectReason, errorMessage string) {
+	if other == "" {
+		return "", ""
+	}
+	var data map[string]json.RawMessage
+	if err := common.UnmarshalJsonStr(other, &data); err != nil {
+		return "", ""
+	}
+	// Check admin_info for reject_reason
+	if rawAdmin, ok := data["admin_info"]; ok {
+		var adminInfo map[string]json.RawMessage
+		if err := common.Unmarshal(rawAdmin, &adminInfo); err == nil {
+			if rawReject, ok := adminInfo["reject_reason"]; ok {
+				var reject string
+				if err := common.Unmarshal(rawReject, &reject); err == nil {
+					rejectReason = reject
+				}
+			}
+			// Also check for channel_name in admin_info (legacy)
+			if rawChName, ok := adminInfo["channel_name"]; ok {
+				var chName string
+				if err := common.Unmarshal(rawChName, &chName); err == nil && errorMessage == "" {
+					errorMessage = "Channel: " + chName
+				}
+			}
+		}
+	}
+	// Check public content_parts for error messages
+	if rawContent, ok := data["content_parts"]; ok {
+		var contentParts []map[string]any
+		if err := common.Unmarshal(rawContent, &contentParts); err == nil {
+			for _, part := range contentParts {
+				if errMsg, ok := part["error"].(string); ok && errMsg != "" {
+					if errorMessage == "" {
+						errorMessage = errMsg
+					}
+				}
+			}
+		}
+	}
+	return rejectReason, errorMessage
+}
+// GetModelFailoverHistory returns recent failover/switch events for a model.
+// A failover occurs when a request is retried on a different channel (same RequestId, different ChannelId).
+func GetModelFailoverHistory(c *gin.Context) {
+	modelName := c.Param("model_name")
+	if modelName == "" {
+		common.ApiErrorT(c, "Model name is required")
+		return
+	}
+
+	limit := 200 // Fetch more logs to find failover chains
+	if l := c.Query("limit"); l != "" {
+		if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 {
+			limit = parsed
+		}
+	}
+
+	logs, err := model.GetModelRequestHistory(modelName, limit)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+
+	// Group logs by RequestId to find failover chains
+	requestGroups := make(map[string][]*model.Log)
+	for _, log := range logs {
+		if log.RequestId != "" {
+			requestGroups[log.RequestId] = append(requestGroups[log.RequestId], log)
+		}
+	}
+
+	type FailoverEvent struct {
+		RequestId        string   `json:"request_id"`
+		ModelName        string   `json:"model_name"`
+		TotalAttempts    int      `json:"total_attempts"`
+		ChannelsTried    []int    `json:"channels_tried"`
+		ChannelNames     []string `json:"channel_names"`
+		FinalChannelId   int      `json:"final_channel_id"`
+		FinalChannelName string   `json:"final_channel_name"`
+		Success          bool     `json:"success"`
+		FirstAttemptAt   int64    `json:"first_attempt_at"`
+		LastAttemptAt    int64    `json:"last_attempt_at"`
+		RejectReasons    []string `json:"reject_reasons"`
+		ErrorMessages    []string `json:"error_messages"`
+		DurationMs       int64    `json:"duration_ms"`
+	}
+
+	var failovers []FailoverEvent
+	for requestId, groupLogs := range requestGroups {
+		if len(groupLogs) <= 1 {
+			continue // No failover, only single attempt
+		}
+
+		// Sort by CreatedAt
+		sort.Slice(groupLogs, func(i, j int) bool {
+			return groupLogs[i].CreatedAt < groupLogs[j].CreatedAt
+		})
+
+		channelsTried := make([]int, 0, len(groupLogs))
+		channelNames := make([]string, 0, len(groupLogs))
+		rejectReasons := make([]string, 0, len(groupLogs))
+		errorMessages := make([]string, 0, len(groupLogs))
+		seenChannels := make(map[int]bool)
+
+		for _, log := range groupLogs {
+			if !seenChannels[log.ChannelId] {
+				channelsTried = append(channelsTried, log.ChannelId)
+				channelNames = append(channelNames, log.ChannelName)
+				seenChannels[log.ChannelId] = true
+			}
+			rejectReason, errorMessage := parseLogOther(log.Other)
+			if rejectReason != "" {
+				rejectReasons = append(rejectReasons, rejectReason)
+			}
+			if errorMessage != "" {
+				errorMessages = append(errorMessages, errorMessage)
+			}
+		}
+
+		finalLog := groupLogs[len(groupLogs)-1]
+		failovers = append(failovers, FailoverEvent{
+			RequestId:        requestId,
+			ModelName:        modelName,
+			TotalAttempts:    len(groupLogs),
+			ChannelsTried:    channelsTried,
+			ChannelNames:     channelNames,
+			FinalChannelId:   finalLog.ChannelId,
+			FinalChannelName: finalLog.ChannelName,
+			Success:          finalLog.Quota > 0 || finalLog.PromptTokens > 0 || finalLog.CompletionTokens > 0,
+			FirstAttemptAt:   groupLogs[0].CreatedAt,
+			LastAttemptAt:    finalLog.CreatedAt,
+			RejectReasons:    rejectReasons,
+			ErrorMessages:    errorMessages,
+			DurationMs:       finalLog.CreatedAt - groupLogs[0].CreatedAt,
+		})
+	}
+
+	// Sort by LastAttemptAt desc (most recent first)
+	sort.Slice(failovers, func(i, j int) bool {
+		return failovers[i].LastAttemptAt > failovers[j].LastAttemptAt
+	})
+
+	// Limit to 10 most recent
+	if len(failovers) > 10 {
+		failovers = failovers[:10]
+	}
+
+	common.ApiSuccess(c, gin.H{
+		"model_name": modelName,
+		"failovers":  failovers,
+		"total":      len(failovers),
 	})
 }
