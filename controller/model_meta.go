@@ -12,6 +12,31 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+
+// ChannelInfo represents channel information with health metrics for a model.
+type ChannelInfo struct {
+	ID                 int     `json:"id"`
+	Name               string  `json:"name"`
+	Type               int     `json:"type"`
+	Group              string  `json:"group"`
+	Status             int     `json:"status"`
+	Priority           int64   `json:"priority"`
+	Weight             int     `json:"weight"`
+	IsEnabled          bool    `json:"is_enabled"`
+	PenaltyCount       int     `json:"penalty_count"`
+	PenaltyUntil       int64   `json:"penalty_until"`
+	PenaltyReason      string  `json:"penalty_reason"`
+	// Health metrics from provider memory
+	AvgLatencyMs       float64 `json:"avg_latency_ms,omitempty"`
+	ErrorRate          float64 `json:"error_rate,omitempty"`
+	SuccessRate        float64 `json:"success_rate,omitempty"`
+	CostPer1k          float64 `json:"cost_per_1k,omitempty"`
+	SampleSize         int     `json:"sample_size,omitempty"`
+	// Recommended priority based on health metrics
+	RecommendedPriority  int     `json:"recommended_priority,omitempty"`
+}
+
+
 // GetAllModelsMeta 获取模型列表（分页）
 func GetAllModelsMeta(c *gin.Context) {
 	listModelsMeta(c, "", "")
@@ -334,4 +359,223 @@ func enrichModels(models []*model.Model) error {
 		}
 	}
 	return nil
+}
+
+// GetModelChannels returns channels configured for a specific model with their
+// priority, weight, and health metrics.
+func GetModelChannels(c *gin.Context) {
+	modelName := c.Param("model_name")
+	if modelName == "" {
+		common.ApiErrorT(c, "Model name is required")
+		return
+	}
+
+	// Get all channels that have this model
+	var channels []model.Channel
+	if err := model.DB.Select("id", "name", "type", "group", "status", "priority", "weight", "other_settings").
+		Find(&channels).Error; err != nil {
+		common.ApiError(c, err)
+		return
+	}
+
+
+
+	// Get penalty info for all channels
+	penaltyCounts := make(map[int]int)
+	penaltyUntils := make(map[int]int64)
+	penaltyReasons := make(map[int]string)
+	for _, ch := range channels {
+		penaltyCounts[ch.Id] = model.GetPenaltyCount(ch.Id)
+		penaltyUntils[ch.Id] = int64(model.GetPenaltyRemainingSeconds(ch.Id))
+		penaltyReasons[ch.Id] = model.GetPenaltyReason(ch.Id)
+	}
+
+	// Get health metrics from provider memory observations
+	healthMetrics := make(map[int]map[string]float64)
+	observations, _ := model.RecallActiveObservations(model.ProviderRecallFilter{
+		ModelName: modelName,
+		Limit:     1000,
+	})
+	for _, obs := range observations {
+		var metrics map[string]float64
+		if err := common.Unmarshal([]byte(obs.Metrics), &metrics); err == nil {
+			healthMetrics[obs.ChannelId] = metrics
+		}
+	}
+
+	// Filter channels that have this model and build response
+	var result []ChannelInfo
+	for _, ch := range channels {
+		models := ch.GetModels()
+		hasModel := false
+		for _, m := range models {
+			if m == modelName {
+				hasModel = true
+				break
+			}
+		}
+		if !hasModel {
+			continue
+		}
+
+		info := ChannelInfo{
+			ID:             ch.Id,
+			Name:           ch.Name,
+			Type:           ch.Type,
+			Group:          ch.Group,
+			Status:         ch.Status,
+			Priority:       ch.GetPriority(),
+			Weight:         ch.GetWeight(),
+			IsEnabled:      ch.Status == common.ChannelStatusEnabled,
+			PenaltyCount:   penaltyCounts[ch.Id],
+			PenaltyUntil:   penaltyUntils[ch.Id],
+			PenaltyReason:  penaltyReasons[ch.Id],
+		}
+
+		// Add health metrics if available
+		if metrics, ok := healthMetrics[ch.Id]; ok {
+			info.AvgLatencyMs = metrics["latency_ms"]
+			info.ErrorRate = metrics["error_rate"]
+			info.SuccessRate = metrics["success_rate"]
+			info.CostPer1k = metrics["cost_per_1k"]
+			info.SampleSize = int(metrics["sample_size"])
+		}
+
+		// Calculate recommended priority based on health metrics
+		info.RecommendedPriority = calculateRecommendedPriority(info)
+
+		result = append(result, info)
+	}
+
+	// Sort by priority (highest first), then by weight
+	sort.Slice(result, func(i, j int) bool {
+		if result[i].Priority != result[j].Priority {
+			return result[i].Priority > result[j].Priority
+		}
+		return result[i].Weight > result[j].Weight
+	})
+
+	common.ApiSuccess(c, gin.H{
+		"model_name": modelName,
+		"channels":   result,
+		"total":      len(result),
+	})
+}
+// calculateRecommendedPriority calculates a recommended priority based on health metrics.
+// Higher priority = better (lower latency, lower error rate, higher success rate).
+// Returns a priority value between 0 and 100.
+func calculateRecommendedPriority(info ChannelInfo) int {
+	basePriority := 50 // Default middle priority
+	
+	// If no health data, return base priority
+	if info.SampleSize == 0 {
+		return basePriority
+	}
+	
+	// Adjust based on success rate (0-1)
+	if info.SuccessRate > 0 {
+		// Success rate contribution: 0-30 points
+		successBonus := int(info.SuccessRate * 30)
+		basePriority += successBonus
+	}
+	
+	// Adjust based on error rate (0-1) - lower is better
+	if info.ErrorRate > 0 {
+		// Error rate penalty: 0-20 points
+		errorPenalty := int(info.ErrorRate * 20)
+		basePriority -= errorPenalty
+	}
+	
+	// Adjust based on latency - lower is better
+	// Assume good latency is < 1000ms, bad is > 5000ms
+	if info.AvgLatencyMs > 0 {
+		if info.AvgLatencyMs < 1000 {
+			basePriority += 10 // Fast
+		} else if info.AvgLatencyMs < 3000 {
+			basePriority += 5 // Acceptable
+		} else if info.AvgLatencyMs > 10000 {
+			basePriority -= 10 // Slow
+		}
+	}
+	
+	// Penalty for penalized channels
+	if info.PenaltyCount > 0 {
+		basePriority -= info.PenaltyCount * 5
+	}
+	
+	// Clamp to 0-100
+	if basePriority < 0 {
+		basePriority = 0
+	}
+	if basePriority > 100 {
+		basePriority = 100
+	}
+	
+	return basePriority
+}
+// GetModelRequestHistory returns recent request logs for a model showing which channels served it.
+func GetModelRequestHistory(c *gin.Context) {
+	modelName := c.Param("model_name")
+	if modelName == "" {
+		common.ApiErrorT(c, "Model name is required")
+		return
+	}
+
+	limit := 100
+	if l := c.Query("limit"); l != "" {
+		if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 {
+			limit = parsed
+		}
+	}
+
+	logs, err := model.GetModelRequestHistory(modelName, limit)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+
+	type LogEntry struct {
+		Id                int    `json:"id"`
+		CreatedAt         int64  `json:"created_at"`
+		ModelName         string `json:"model_name"`
+		ChannelId         int    `json:"channel_id"`
+		ChannelName       string `json:"channel_name"`
+		Quota             int    `json:"quota"`
+		PromptTokens      int    `json:"prompt_tokens"`
+		CompletionTokens  int    `json:"completion_tokens"`
+		UseTime           int    `json:"use_time"`
+		IsStream          bool   `json:"is_stream"`
+		Group             string `json:"group"`
+		Ip                string `json:"ip"`
+		RequestId         string `json:"request_id"`
+		UpstreamRequestId string `json:"upstream_request_id"`
+		Other             string `json:"other"`
+	}
+
+	var result []LogEntry
+	for _, log := range logs {
+		result = append(result, LogEntry{
+			Id:                log.Id,
+			CreatedAt:         log.CreatedAt,
+			ModelName:         log.ModelName,
+			ChannelId:         log.ChannelId,
+			ChannelName:       log.ChannelName,
+			Quota:             log.Quota,
+			PromptTokens:      log.PromptTokens,
+			CompletionTokens:  log.CompletionTokens,
+			UseTime:           log.UseTime,
+			IsStream:          log.IsStream,
+			Group:             log.Group,
+			Ip:                log.Ip,
+			RequestId:         log.RequestId,
+			UpstreamRequestId: log.UpstreamRequestId,
+			Other:             log.Other,
+		})
+	}
+
+	common.ApiSuccess(c, gin.H{
+		"model_name": modelName,
+		"logs":       result,
+		"total":      len(result),
+	})
 }

@@ -244,6 +244,27 @@ export function useModelsColumns(
         },
       },
       {
+        id: 'rotation',
+        header: t('Rotation'),
+        size: 120,
+        enableSorting: false,
+        meta: { mobileHidden: true, label: t('Rotation') },
+        cell: ({ row }) => {
+          const channelCount = row.original.bound_channels?.length ?? 0
+          if (channelCount === 0) {
+            return <span className='text-muted-foreground text-xs'>{t('No channels')}</span>
+          }
+          return (
+            <button
+              onClick={() => navigate({ to: '/models/rotation', search: { model: row.original.model_name } })}
+              className='text-primary hover:underline text-sm flex items-center gap-1'
+            >
+              <span>{t('View')} ({channelCount})</span>
+            </button>
+          )
+        },
+      },
+      {
         accessorKey: 'tags',
         header: t('Tags'),
         size: 180,

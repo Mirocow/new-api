@@ -633,6 +633,78 @@ export async function checkClusterNameAvailability(name: string): Promise<{
   return res.data
 }
 
+/**
+ * Get channels for a specific model with priority, weight, and health metrics
+ */
+export interface ModelChannelInfo {
+  id: number
+  name: string
+  type: number
+  group: string
+  status: number
+  priority: number
+  weight: number
+  is_enabled: boolean
+  penalty_count: number
+  penalty_until: number
+  penalty_reason: string
+  avg_latency_ms?: number
+  error_rate?: number
+  success_rate?: number
+  cost_per_1k?: number
+  sample_size?: number
+  recommended_priority?: number
+}
+
+export interface GetModelChannelsResponse {
+  success: boolean
+  message?: string
+  data?: {
+    model_name: string
+    channels: ModelChannelInfo[]
+    total: number
+  }
+}
+
+export async function getModelChannels(modelName: string): Promise<GetModelChannelsResponse> {
+  const res = await api.get(`/api/models/${encodeURIComponent(modelName)}/channels`)
+  return res.data
+}
+/**
+ * Get request history for a model showing which channels served it
+ */
+export interface ModelRequestLogEntry {
+  id: number
+  created_at: number
+  model_name: string
+  channel_id: number
+  channel_name: string
+  quota: number
+  prompt_tokens: number
+  completion_tokens: number
+  use_time: number
+  is_stream: boolean
+  group: string
+  ip: string
+  request_id: string
+  upstream_request_id: string
+  other: string
+}
+
+export interface GetModelRequestHistoryResponse {
+  success: boolean
+  message?: string
+  data?: {
+    model_name: string
+    logs: ModelRequestLogEntry[]
+    total: number
+  }
+}
+
+export async function getModelRequestHistory(modelName: string, limit = 100): Promise<GetModelRequestHistoryResponse> {
+  const res = await api.get(`/api/models/${encodeURIComponent(modelName)}/history`, { params: { limit } })
+  return res.data
+}
 export interface ModelDeleteResult {
   deleted_count: number
   updated_channels: number

@@ -286,6 +286,7 @@ func NewDashboardWSHandler() *DashboardWSHandler {
 }
 
 func (h *DashboardWSHandler) HandleWS(c *gin.Context) {
+	// Authentication is handled by WSAuthMiddleware in the router
 	userID := c.GetInt("id")
 	role := c.GetInt("role")
 	if userID <= 0 {

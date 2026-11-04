@@ -18,12 +18,13 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useQueryClient } from '@tanstack/react-query'
 import { getRouteApi, useNavigate } from '@tanstack/react-router'
-import { Plus } from 'lucide-react'
+import { Plus, Search } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { SectionPageLayout } from '@/components/layout'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { requireServerSuccess } from '@/lib/server-error-message'
 
@@ -35,6 +36,7 @@ import { ModelsDialogs } from './components/models-dialogs'
 import { ModelsPrimaryButtons } from './components/models-primary-buttons'
 import { ModelsProvider, useModels } from './components/models-provider'
 import { ModelsTable } from './components/models-table'
+import { ModelRotationDashboard } from './components/model-rotation-dashboard'
 import { VendorsTable } from './components/vendors-table'
 import { useModelDeploymentSettings } from './hooks/use-model-deployment-settings'
 import { deploymentsQueryKeys } from './lib'
@@ -58,6 +60,10 @@ const SECTION_META: Record<
   deployments: {
     titleKey: 'Deployments',
     tabKey: 'Deployments',
+  },
+  rotation: {
+    titleKey: 'Model rotation dashboard',
+    tabKey: 'Model Rotation',
   },
 }
 
@@ -116,6 +122,8 @@ function ModelsContent() {
       </Button>
     )
     content = <DeploymentsSection />
+  } else if (activeSection === 'rotation') {
+    content = <ModelRotationDashboard />
   }
 
   return (

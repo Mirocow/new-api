@@ -42,7 +42,7 @@ export function useDashboardWS(options: UseDashboardWSOptions = {}) {
     enabled = true,
   } = options
 
-  const token = useAuthStore((state) => state.auth.token)
+  const token = useAuthStore((state) => state.auth.accessToken)
   const wsRef = useRef<WebSocket | null>(null)
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout>>()
   const reconnectAttempts = useRef(0)
@@ -69,7 +69,8 @@ export function useDashboardWS(options: UseDashboardWSOptions = {}) {
   const connect = useCallback(() => {
     if (!enabled || !token) return
 
-    const wsUrl = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/api/ws/dashboard`
+    // Pass token as query parameter since browsers can't send custom headers during WebSocket handshake
+    const wsUrl = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/api/ws/dashboard?token=${encodeURIComponent(token)}`
     const ws = new WebSocket(wsUrl)
     wsRef.current = ws
 
