@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { getRouteApi } from '@tanstack/react-router'
 import type { ColumnDef } from '@tanstack/react-table'
 import { useCallback } from 'react'
@@ -31,7 +31,7 @@ import {
   getAdminPlans,
   getSelfSubscriptionFull,
 } from '@/features/subscriptions/api'
-import { useMediaQuery } from '@/hooks'
+import { useDashboardWS, useMediaQuery } from '@/hooks'
 import { useTableUrlState } from '@/hooks/use-table-url-state'
 import { createServerError } from '@/lib/server-error-message'
 import { cn } from '@/lib/utils'
@@ -86,6 +86,7 @@ interface UsageLogsTableProps {
 
 export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
   const { t } = useTranslation()
+  const queryClient = useQueryClient()
   const getColumnClassName = useCallback(
     () => (logCategory === 'common' ? 'py-2' : 'py-3.5'),
     [logCategory]
@@ -226,6 +227,17 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
   })
 
   const isCommon = logCategory === 'common'
+
+  // WebSocket for real-time updates
+  useDashboardWS({
+    onUsageLogCreated: () => {
+      // Invalidate the logs query to refetch with the latest data
+      queryClient.invalidateQueries({
+        queryKey: ['logs', logCategory, viewAccess],
+      })
+    },
+    enabled: isCommon, // Only connect for common logs (not task/mj logs)
+  })
 
   return (
     <DataTablePage

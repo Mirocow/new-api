@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { isAxiosError } from 'axios'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -26,6 +26,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { requireServerSuccess } from '@/lib/server-error-message'
 import { useAuthStore } from '@/stores/auth-store'
+import { useDashboardWS } from '@/hooks'
 
 import { getAuditLogs, type AuditFilters, type AuditLog } from '../api'
 import { useAuditLogColumns } from './audit-log-columns'
@@ -42,6 +43,7 @@ export function AuditLogViewer(props: {
   onAccessDenied?: () => Promise<void>
 }) {
   const { t } = useTranslation()
+  const queryClient = useQueryClient()
   const userId = useAuthStore((state) => state.auth.user?.id)
   const [filters, setFilters] = useState<AuditFilters>({ p: 1, page_size: 20 })
   const defaultTokenScope = props.defaultTokenScope ?? 'all'
@@ -107,6 +109,17 @@ export function AuditLogViewer(props: {
   })
   const update = (patch: Partial<AuditFilters>) =>
     setFilters((previous) => ({ ...previous, ...patch, p: 1 }))
+
+  // WebSocket for real-time updates
+  useDashboardWS({
+    onAuditLogCreated: () => {
+      // Invalidate the audit logs query to refetch with the latest data
+      queryClient.invalidateQueries({
+        queryKey: ['audit', userId, props.scope],
+      })
+    },
+    enabled: props.scope === 'all', // Only connect for admin view (all logs)
+  })
 
   return (
     <div className='flex h-full min-h-0 flex-col'>

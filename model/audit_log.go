@@ -10,6 +10,7 @@ import (
 	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/logger"
+	"github.com/QuantumNous/new-api/pkg/wsmanager"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
@@ -133,7 +134,30 @@ func RecordAuditLog(c *gin.Context, entry AuditLog) {
 	}
 	if err := LOG_DB.Table("audit_logs").Create(row).Error; err != nil {
 		logger.LogError(ctx, common.LogText("audit log write failed (request_id=%s): %v", entry.RequestId, err))
+		return
 	}
+
+	// Broadcast audit log event via WebSocket
+	wsmanager.BroadcastDashboardEvent("audit_log_created", map[string]any{
+		"event_id":    entry.EventId,
+		"user_id":     entry.UserId,
+		"username":    entry.Username,
+		"actor_role":  entry.ActorRole,
+		"created_at":  entry.CreatedAt,
+		"category":    entry.Category,
+		"action":      entry.Action,
+		"token_ref":   entry.TokenRef,
+		"auth_method": entry.AuthMethod,
+		"ip":          entry.Ip,
+		"user_agent":  entry.UserAgent,
+		"method":      entry.Method,
+		"route":       entry.Route,
+		"status":      entry.Status,
+		"success":     entry.Success,
+		"request_id":  entry.RequestId,
+		"content":     entry.Content,
+		"other":       entry.Other,
+	})
 }
 
 func GetAuditLogs(filter AuditLogFilter, start, limit, viewerRole int) ([]*AuditLog, int64, error) {

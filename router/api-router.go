@@ -5,6 +5,7 @@ import (
 
 	"github.com/QuantumNous/new-api/controller"
 	"github.com/QuantumNous/new-api/middleware"
+	"github.com/QuantumNous/new-api/pkg/wsmanager"
 	"github.com/QuantumNous/new-api/service/authz"
 
 	// Import oauth package to register providers via init()
@@ -320,7 +321,7 @@ func SetApiRouter(router *gin.Engine) {
 			redemptionRoute.DELETE("/invalid", controller.DeleteInvalidRedemption)
 			redemptionRoute.DELETE("/:id", controller.DeleteRedemption)
 		}
-		handlePermissionRoute(apiRouter.Group("", middleware.DisableCache(), middleware.AdminAuth()), http.MethodGet, "/audit", authz.AuditRead, controller.GetAuditLogs)
+		handlePermissionRoute(apiRouter.Group("", middleware.AdminAuth()), http.MethodGet, "/audit", authz.AuditRead, controller.GetAuditLogs)
 		apiRouter.GET("/audit/self", middleware.DisableCache(), middleware.UserAuth(), controller.GetAuditLogs)
 		logRoute := apiRouter.Group("/log")
 		logRoute.GET("/", middleware.AdminAuth(), controller.GetAllLogs)
@@ -463,5 +464,9 @@ func SetApiRouter(router *gin.Engine) {
 			providerMemoryRoute.GET("/routing-hint/latency", controller.GetRoutingHintByLatency)
 			providerMemoryRoute.GET("/routing-hint/success", controller.GetRoutingHintBySuccess)
 		}
+
+		// Dashboard WebSocket routes
+		dashboardWSHandler := wsmanager.NewDashboardWSHandler()
+		apiRouter.GET("/ws/dashboard", middleware.UserAuth(), dashboardWSHandler.HandleWS)
 	}
 }

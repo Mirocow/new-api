@@ -30,3 +30,6 @@ export { useDebounce } from './use-debounce'
 
 // Media Query
 export { useMediaQuery } from './use-media-query'
+
+// Dashboard WebSocket
+export { useDashboardWS, type DashboardWSEvent, type UseDashboardWSOptions } from './use-dashboard-ws'

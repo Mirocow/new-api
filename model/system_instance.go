@@ -2,6 +2,7 @@ package model
 
 import (
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/pkg/wsmanager"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -58,7 +59,7 @@ func UpsertSystemInstance(nodeName string, info any, startedAt int64, lastSeenAt
 		LastSeenAt: lastSeenAt,
 		UpdatedAt:  lastSeenAt,
 	}
-	return DB.Clauses(clause.OnConflict{
+	err = DB.Clauses(clause.OnConflict{
 		Columns: []clause.Column{{Name: "node_name"}},
 		DoUpdates: clause.AssignmentColumns([]string{
 			"info",
@@ -67,6 +68,16 @@ func UpsertSystemInstance(nodeName string, info any, startedAt int64, lastSeenAt
 			"updated_at",
 		}),
 	}).Create(instance).Error
+	if err == nil {
+		// Broadcast system instance event via WebSocket
+		wsmanager.BroadcastDashboardEventToRole("system_instance_updated", map[string]any{
+			"node_name":    nodeName,
+			"info":         info,
+			"started_at":   startedAt,
+			"last_seen_at": lastSeenAt,
+		}, common.RoleRootUser)
+	}
+	return err
 }
 
 func ListSystemInstances() ([]*SystemInstance, error) {
@@ -77,11 +88,23 @@ func ListSystemInstances() ([]*SystemInstance, error) {
 
 func DeleteStaleSystemInstances(now int64) (int64, error) {
 	result := DB.Where("last_seen_at < ?", now-SystemInstanceStaleAfterSeconds).Delete(&SystemInstance{})
+	if result.RowsAffected > 0 {
+		// Broadcast system instance deletion event via WebSocket
+		wsmanager.BroadcastDashboardEventToRole("system_instance_deleted", map[string]any{
+			"deleted_count": result.RowsAffected,
+		}, common.RoleRootUser)
+	}
 	return result.RowsAffected, result.Error
 }
 
 func DeleteStaleSystemInstance(nodeName string, now int64) (bool, error) {
 	result := DB.Where("node_name = ? AND last_seen_at < ?", nodeName, now-SystemInstanceStaleAfterSeconds).Delete(&SystemInstance{})
+	if result.RowsAffected > 0 {
+		// Broadcast system instance deletion event via WebSocket
+		wsmanager.BroadcastDashboardEventToRole("system_instance_deleted", map[string]any{
+			"node_name": nodeName,
+		}, common.RoleRootUser)
+	}
 	return result.RowsAffected > 0, result.Error
 }
 

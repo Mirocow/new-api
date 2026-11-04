@@ -7,6 +7,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/logger"
+	"github.com/QuantumNous/new-api/pkg/wsmanager"
 	"github.com/QuantumNous/new-api/types"
 
 	"github.com/gin-gonic/gin"
@@ -98,7 +99,33 @@ func ensureLogRequestId(log *Log) {
 
 func createLog(log *Log) error {
 	ensureLogRequestId(log)
-	return LOG_DB.Create(log).Error
+	err := LOG_DB.Create(log).Error
+	if err == nil {
+		// Broadcast log event via WebSocket
+		wsmanager.BroadcastDashboardEvent("usage_log_created", map[string]any{
+			"id":                   log.Id,
+			"user_id":              log.UserId,
+			"username":             log.Username,
+			"created_at":           log.CreatedAt,
+			"type":                 log.Type,
+			"content":              log.Content,
+			"prompt_tokens":        log.PromptTokens,
+			"completion_tokens":    log.CompletionTokens,
+			"token_name":           log.TokenName,
+			"model_name":           log.ModelName,
+			"quota":                log.Quota,
+			"channel_id":           log.ChannelId,
+			"token_id":             log.TokenId,
+			"use_time":             log.UseTime,
+			"is_stream":            log.IsStream,
+			"group":                log.Group,
+			"ip":                   log.Ip,
+			"request_id":           log.RequestId,
+			"upstream_request_id":  log.UpstreamRequestId,
+			"other":                log.Other,
+		})
+	}
+	return err
 }
 
 func clickHouseLogOrder(prefix string) string {
@@ -811,4 +838,60 @@ func DeleteOldLogBatch(ctx context.Context, targetTimestamp int64, limit int) (i
 		return 0, result.Error
 	}
 	return result.RowsAffected, nil
+}
+// GetModelRequestHistory returns recent consume logs for a specific model,
+// showing which channels served the model and their outcomes.
+func GetModelRequestHistory(modelName string, limit int) ([]*Log, error) {
+	if limit <= 0 {
+		limit = 100
+	}
+	var logs []*Log
+	err := LOG_DB.Model(&Log{}).
+		Where("model_name = ? AND type = ?", modelName, LogTypeConsume).
+		Order("created_at desc").
+		Limit(limit).
+		Find(&logs).Error
+	if err != nil {
+		return nil, err
+	}
+
+	// Enrich with channel names
+	channelIds := types.NewSet[int]()
+	for _, log := range logs {
+		if log.ChannelId != 0 {
+			channelIds.Add(log.ChannelId)
+		}
+	}
+
+	if channelIds.Len() > 0 {
+		var channels []struct {
+			Id   int    `gorm:"column:id"`
+			Name string `gorm:"column:name"`
+		}
+		if common.MemoryCacheEnabled {
+			for _, id := range channelIds.Items() {
+				if ch, _ := CacheGetChannel(id); ch != nil {
+					channels = append(channels, struct {
+						Id   int    `gorm:"column:id"`
+						Name string `gorm:"column:name"`
+					}{Id: ch.Id, Name: ch.Name})
+				}
+			}
+		} else {
+			if err := DB.Select("id", "name").Where("id IN ?", channelIds.Items()).Find(&channels).Error; err != nil {
+				return nil, err
+			}
+		}
+		channelMap := make(map[int]string)
+		for _, ch := range channels {
+			channelMap[ch.Id] = ch.Name
+		}
+		for _, log := range logs {
+			if name, ok := channelMap[log.ChannelId]; ok {
+				log.ChannelName = name
+			}
+		}
+	}
+
+	return logs, nil
 }
