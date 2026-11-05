@@ -416,6 +416,7 @@ func SetApiRouter(router *gin.Engine) {
 			modelsRoute.DELETE("/:id", controller.DeleteModelMeta)
 			modelsRoute.GET("/:model_name/channels", controller.GetModelChannels)
 			modelsRoute.GET("/:model_name/history", controller.GetModelRequestHistory)
+			modelsRoute.GET("/:model_name/failovers", controller.GetModelFailoverHistory)
 			}
 
 		// Deployments (model deployment management)
