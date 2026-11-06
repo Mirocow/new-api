@@ -2,6 +2,7 @@ package ratio_setting
 
 import (
 	"maps"
+	"strconv"
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
@@ -325,6 +326,11 @@ var modelPriceMap = types.NewRWMap[string, float64]()
 var modelRatioMap = types.NewRWMap[string, float64]()
 var completionRatioMap = types.NewRWMap[string, float64]()
 
+// Global default ratios (runtime, saved in DB via options table)
+// Key: "__global_default__" -> float64 value
+var globalDefaultModelRatio = types.NewRWMap[string, float64]()
+var globalDefaultCompletionRatio = types.NewRWMap[string, float64]()
+
 var defaultCompletionRatio = map[string]float64{
 	"gpt-4-gizmo-*":  2,
 	"gpt-4o-gizmo-*": 3,
@@ -342,6 +348,7 @@ func InitRatioSettings() {
 	imageRatioMap.AddAll(defaultImageRatio)
 	audioRatioMap.AddAll(defaultAudioRatio)
 	audioCompletionRatioMap.AddAll(defaultAudioCompletionRatio)
+	loadGlobalDefaultsFromDB()
 }
 
 func GetModelPriceMap() map[string]float64 {
@@ -423,6 +430,69 @@ func GetDefaultPricingMaps() map[string]map[string]float64 {
 		maps.Copy(result[key], values)
 	}
 	return result
+}
+
+// loadGlobalDefaultsFromDB loads global default ratios from options table
+func loadGlobalDefaultsFromDB() {
+	common.OptionMapRWMutex.RLock()
+	defer common.OptionMapRWMutex.RUnlock()
+	// Load DefaultModelRatio
+	if val, ok := common.OptionMap["DefaultModelRatio"]; ok && val != "" {
+		if f, err := strconv.ParseFloat(val, 64); err == nil {
+			globalDefaultModelRatio.Set("__global_default__", f)
+		}
+	}
+	// Load DefaultCompletionRatio
+	if val, ok := common.OptionMap["DefaultCompletionRatio"]; ok && val != "" {
+		if f, err := strconv.ParseFloat(val, 64); err == nil {
+			globalDefaultCompletionRatio.Set("__global_default__", f)
+		}
+	}
+}
+
+// GetGlobalDefaultModelRatio returns the global default model ratio (input)
+// Returns 0 if not set (caller should fall back to hardcoded default)
+func GetGlobalDefaultModelRatio() float64 {
+	if v, ok := globalDefaultModelRatio.Get("__global_default__"); ok {
+		return v
+	}
+	return 0
+}
+
+// GetGlobalDefaultCompletionRatio returns the global default completion ratio (output)
+// Returns 0 if not set
+func GetGlobalDefaultCompletionRatio() float64 {
+	if v, ok := globalDefaultCompletionRatio.Get("__global_default__"); ok {
+		return v
+	}
+	return 0
+}
+
+// SetGlobalDefaultModelRatioInMemory sets the global default model ratio in memory only
+// Called by model.SetGlobalDefaultModelRatio to avoid import cycle
+func SetGlobalDefaultModelRatioInMemory(ratio float64) {
+	globalDefaultModelRatio.Set("__global_default__", ratio)
+}
+
+// SetGlobalDefaultCompletionRatioInMemory sets the global default completion ratio in memory only
+// Called by model.SetGlobalDefaultCompletionRatio to avoid import cycle
+func SetGlobalDefaultCompletionRatioInMemory(ratio float64) {
+	globalDefaultCompletionRatio.Set("__global_default__", ratio)
+}
+
+// GetGlobalDefaultRatiosJSON returns both global defaults as JSON string for API
+func GetGlobalDefaultRatiosJSON() string {
+	modelRatio := GetGlobalDefaultModelRatio()
+	completionRatio := GetGlobalDefaultCompletionRatio()
+	data := map[string]float64{}
+	if modelRatio > 0 {
+		data["model_ratio"] = modelRatio
+	}
+	if completionRatio > 0 {
+		data["completion_ratio"] = completionRatio
+	}
+	jsonBytes, _ := common.Marshal(data)
+	return string(jsonBytes)
 }
 
 func CompletionRatio2JSONString() string {
@@ -748,6 +818,10 @@ func GetModelRatioOrPrice(model string) (float64, bool, bool) { // price or rati
 	modelRatio, success, _ := GetModelRatio(model)
 	if success {
 		return modelRatio, false, true
+	}
+	// Use global default if configured, otherwise hardcoded fallback
+	if globalDefault := GetGlobalDefaultModelRatio(); globalDefault > 0 {
+		return globalDefault, false, false
 	}
 	return 37.5, false, false
 }

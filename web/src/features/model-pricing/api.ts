@@ -214,3 +214,31 @@ export function buildPricingChanges(
   }
   return changes
 }
+
+export type GlobalDefaultRatios = {
+  model_ratio: number | null
+  completion_ratio: number | null
+}
+
+export async function getGlobalDefaultRatios(): Promise<GlobalDefaultRatios> {
+  const res = await api.get('/api/option/global_default_ratios')
+  if (!res.data.success) {
+    throw createServerError(res.data, t('Failed to load global default ratios'))
+  }
+  return res.data.data
+}
+
+export async function updateGlobalDefaultRatios(ratios: Partial<GlobalDefaultRatios>) {
+  const res = await api.post('/api/option/global_default_ratios', ratios)
+  if (!res.data.success) {
+    throw createServerError(res.data, t('Failed to update global default ratios'))
+  }
+}
+
+export async function resetGlobalDefaultRatios() {
+  const res = await api.delete('/api/option/global_default_ratios')
+  if (!res.data.success) {
+    throw createServerError(res.data, t('Failed to reset global default ratios'))
+  }
+}
+

@@ -90,3 +90,51 @@ func ResetModelRatio(c *gin.Context) {
 	}
 	common.ApiSuccessT(c, "Model ratios reset", nil)
 }
+
+func GetGlobalDefaultRatios(c *gin.Context) {
+	c.JSON(200, gin.H{
+		"success": true,
+		"data": gin.H{
+			"model_ratio":       ratio_setting.GetGlobalDefaultModelRatio(),
+			"completion_ratio":  ratio_setting.GetGlobalDefaultCompletionRatio(),
+		},
+	})
+}
+
+func UpdateGlobalDefaultRatios(c *gin.Context) {
+	var req struct {
+		ModelRatio      *float64 `json:"model_ratio"`
+		CompletionRatio *float64 `json:"completion_ratio"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+
+	if req.ModelRatio != nil {
+		if err := model.SetGlobalDefaultModelRatio(*req.ModelRatio); err != nil {
+			common.ApiError(c, err)
+			return
+		}
+	}
+	if req.CompletionRatio != nil {
+		if err := model.SetGlobalDefaultCompletionRatio(*req.CompletionRatio); err != nil {
+			common.ApiError(c, err)
+			return
+		}
+	}
+	common.ApiSuccessT(c, "Global default ratios updated", nil)
+}
+
+func ResetGlobalDefaultRatios(c *gin.Context) {
+	if err := model.SetGlobalDefaultModelRatio(0); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	if err := model.SetGlobalDefaultCompletionRatio(0); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccessT(c, "Global default ratios reset", nil)
+}
+

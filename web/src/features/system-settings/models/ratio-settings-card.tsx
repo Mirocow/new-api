@@ -34,6 +34,10 @@ import {
   useModelPricing,
   useSaveModelPricing,
   type ModelPricingConfig,
+  getGlobalDefaultRatios,
+  updateGlobalDefaultRatios,
+  resetGlobalDefaultRatios,
+  type GlobalDefaultRatios,
 } from '@/features/model-pricing/api'
 import { pricingOptions } from '@/features/model-pricing/pricing'
 import { handleServerError } from '@/lib/handle-server-error'
@@ -155,6 +159,7 @@ type RatioTabId =
   | 'groups'
   | 'tool-prices'
   | 'upstream-sync'
+  | 'global-defaults'
 
 type RatioSettingsCardProps = {
   modelDefaults: ModelFormValues
@@ -164,16 +169,117 @@ type RatioSettingsCardProps = {
   visibleTabs?: RatioTabId[]
 }
 
+// Global Defaults Form Component
+interface GlobalDefaultsFormProps {
+  defaults: GlobalDefaultRatios
+  onSave: (ratios: Partial<GlobalDefaultRatios>) => void
+  onReset: () => void
+  isSaving: boolean
+  t: Translate
+}
+
+function GlobalDefaultsForm({
+  defaults,
+  onSave,
+  onReset,
+  isSaving,
+  t,
+}: GlobalDefaultsFormProps) {
+  const [modelRatio, setModelRatio] = useState<string>('')
+  const [completionRatio, setCompletionRatio] = useState<string>('')
+
+  useEffect(() => {
+    setModelRatio(defaults.model_ratio !== null ? String(defaults.model_ratio) : '')
+    setCompletionRatio(defaults.completion_ratio !== null ? String(defaults.completion_ratio) : '')
+  }, [defaults])
+
+  const handleSave = () => {
+    const ratios: Partial<GlobalDefaultRatios> = {}
+    if (modelRatio.trim() !== '') {
+      const val = parseFloat(modelRatio)
+      if (!isNaN(val) && val >= 0) ratios.model_ratio = val
+    }
+    if (completionRatio.trim() !== '') {
+      const val = parseFloat(completionRatio)
+      if (!isNaN(val) && val >= 0) ratios.completion_ratio = val
+    }
+    onSave(ratios)
+  }
+
+  return (
+    <div className='space-y-6 max-w-2xl'>
+      <div className='space-y-2'>
+        <h4 className='text-sm font-medium'>{t('Global Default Ratios')}</h4>
+        <p className='text-sm text-muted-foreground'>
+          {t('These ratios apply to all models without explicit pricing. Leave empty to use hardcoded fallback (37.5 = $75/1M tokens).')}
+        </p>
+      </div>
+
+      <div className='grid gap-4 sm:grid-cols-2'>
+        <div className='space-y-2'>
+          <label className='text-sm font-medium'>{t('Default Model Ratio (input)')}</label>
+          <input
+            type='number'
+            step='0.01'
+            min='0'
+            value={modelRatio}
+            onChange={(e) => setModelRatio(e.target.value)}
+            className='flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50'
+            placeholder={t('e.g., 25 for $50/1M tokens')}
+          />
+          <p className='text-xs text-muted-foreground'>
+            {t('1 ratio unit = $2/1M tokens. Example: 25 = $50/1M input tokens')}
+          </p>
+        </div>
+        <div className='space-y-2'>
+          <label className='text-sm font-medium'>{t('Default Completion Ratio (output)')}</label>
+          <input
+            type='number'
+            step='0.01'
+            min='0'
+            value={completionRatio}
+            onChange={(e) => setCompletionRatio(e.target.value)}
+            className='flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50'
+            placeholder={t('e.g., 100 for 4x multiplier')}
+          />
+          <p className='text-xs text-muted-foreground'>
+            {t('Multiplier for output tokens. 0 = auto (4x for o1/o3 models). Example: 100 = 4x of model ratio')}
+          </p>
+        </div>
+      </div>
+
+      <div className='flex gap-2'>
+        <Button onClick={handleSave} disabled={isSaving}>
+          {isSaving ? t('Saving...') : t('Save')}
+        </Button>
+        <Button variant='outline' onClick={onReset} disabled={isSaving}>
+          {t('Reset to fallback')}
+        </Button>
+      </div>
+
+      <div className='text-xs text-muted-foreground border-t pt-4'>
+        <p>{t('Current fallback:')} <code>37.5</code> {t('($75/1M tokens for both input and output)')}</p>
+        <p>{t('Active global defaults:')} <code>{defaults.model_ratio !== null ? defaults.model_ratio : 'fallback'}</code> {t('/')} <code>{defaults.completion_ratio !== null ? defaults.completion_ratio : 'fallback'}</code></p>
+      </div>
+    </div>
+  )
+}
+
 export function RatioSettingsCard({
   modelDefaults: initialModelDefaults,
   groupDefaults,
   toolPricesDefault,
   titleKey = 'Pricing Ratios',
-  visibleTabs = ['models', 'groups', 'tool-prices', 'upstream-sync'],
+  visibleTabs = ['models', 'groups', 'tool-prices', 'upstream-sync', 'global-defaults'],
 }: RatioSettingsCardProps) {
   const { t } = useTranslation()
   const updateOption = useUpdateOption()
   const [confirmOpen, setConfirmOpen] = useState(false)
+  const [globalDefaults, setGlobalDefaults] = useState<GlobalDefaultRatios>({
+    model_ratio: null,
+    completion_ratio: null,
+  })
+  const [globalDefaultsLoaded, setGlobalDefaultsLoaded] = useState(false)
 
   const pricingQuery = useModelPricing()
   const savePricing = useSaveModelPricing()
@@ -184,6 +290,22 @@ export function RatioSettingsCard({
       setPricingBaseline(pricingQuery.data)
     }
   }, [pricingBaseline, pricingQuery.data])
+
+  // Load global defaults
+  useEffect(() => {
+    let mounted = true
+    getGlobalDefaultRatios()
+      .then((data) => {
+        if (mounted) {
+          setGlobalDefaults(data)
+          setGlobalDefaultsLoaded(true)
+        }
+      })
+      .catch(() => {
+        if (mounted) setGlobalDefaultsLoaded(true)
+      })
+    return () => { mounted = false }
+  }, [])
   const modelDefaults = useMemo(
     () =>
       pricingBaseline
@@ -407,6 +529,29 @@ export function RatioSettingsCard({
     [t, updateOption, pricingBaseline, savePricing, pricingQuery]
   )
 
+  const saveGlobalDefaults = useCallback(
+    async (ratios: Partial<GlobalDefaultRatios>) => {
+      try {
+        await updateGlobalDefaultRatios(ratios)
+        setGlobalDefaults((prev) => ({ ...prev, ...ratios }))
+        toast.success(t('Global default ratios saved'))
+      } catch (error) {
+        handleServerError(error)
+      }
+    },
+    [t]
+  )
+
+  const resetGlobalDefaults = useCallback(async () => {
+    try {
+      await resetGlobalDefaultRatios()
+      setGlobalDefaults({ model_ratio: null, completion_ratio: null })
+      toast.success(t('Global default ratios reset'))
+    } catch (error) {
+      handleServerError(error)
+    }
+  }, [t])
+
   const saveGroupRatios = useCallback(
     async (values: GroupFormValues) => {
       const normalized = {
@@ -459,6 +604,7 @@ export function RatioSettingsCard({
     groups: 'Group ratios',
     'tool-prices': 'Tool prices',
     'upstream-sync': 'Upstream price sync',
+    'global-defaults': 'Global defaults',
   }
   const tabsGridClass =
     {
@@ -519,6 +665,18 @@ export function RatioSettingsCard({
     }
     if (tab === 'tool-prices') {
       return <ToolPriceSettings defaultValue={toolPricesDefault} />
+    }
+    if (tab === 'global-defaults') {
+      if (!globalDefaultsLoaded) return <LoadingState />
+      return (
+        <GlobalDefaultsForm
+          defaults={globalDefaults}
+          onSave={saveGlobalDefaults}
+          onReset={resetGlobalDefaults}
+          isSaving={false}
+          t={t}
+        />
+      )
     }
     return <UpstreamRatioSync />
   }

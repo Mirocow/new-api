@@ -748,3 +748,16 @@ func handleConfigUpdate(key, value string) bool {
 
 	return true // 已处理
 }
+
+// SetGlobalDefaultModelRatio sets the global default model ratio and persists to DB
+func SetGlobalDefaultModelRatio(ratio float64) error {
+	ratio_setting.SetGlobalDefaultModelRatioInMemory(ratio)
+	return UpdateOption("DefaultModelRatio", strconv.FormatFloat(ratio, 'f', -1, 64))
+}
+
+// SetGlobalDefaultCompletionRatio sets the global default completion ratio and persists to DB
+func SetGlobalDefaultCompletionRatio(ratio float64) error {
+	ratio_setting.SetGlobalDefaultCompletionRatioInMemory(ratio)
+	return UpdateOption("DefaultCompletionRatio", strconv.FormatFloat(ratio, 'f', -1, 64))
+}
+
