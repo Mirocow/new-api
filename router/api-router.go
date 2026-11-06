@@ -409,9 +409,9 @@ func SetApiRouter(router *gin.Engine) {
 			modelsRoute.GET("/", controller.GetAllModelsMeta)
 			modelsRoute.GET("/search", controller.SearchModelsMeta)
 			// Specific routes with additional path segments must come before /:id
-			modelsRoute.GET("/:model_name/channels", controller.GetModelChannels)
-			modelsRoute.GET("/:model_name/history", controller.GetModelRequestHistory)
-			modelsRoute.GET("/:model_name/failovers", controller.GetModelFailoverHistory)
+			modelsRoute.GET("/:id/channels", controller.GetModelChannels)
+			modelsRoute.GET("/:id/history", controller.GetModelRequestHistory)
+			modelsRoute.GET("/:id/failovers", controller.GetModelFailoverHistory)
 			modelsRoute.GET("/:id", controller.GetModelMeta)
 			modelsRoute.POST("/", controller.CreateModelMeta)
 			modelsRoute.PUT("/", controller.UpdateModelMeta)

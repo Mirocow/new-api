@@ -365,7 +365,7 @@ func enrichModels(models []*model.Model) error {
 // GetModelChannels returns channels configured for a specific model with their
 // priority, weight, and health metrics.
 func GetModelChannels(c *gin.Context) {
-	modelName := c.Param("model_name")
+	modelName := c.Param("id")
 	if modelName == "" {
 		common.ApiErrorT(c, "Model name is required")
 		return
@@ -516,7 +516,7 @@ func calculateRecommendedPriority(info ChannelInfo) int {
 }
 // GetModelRequestHistory returns recent request logs for a model showing which channels served it.
 func GetModelRequestHistory(c *gin.Context) {
-	modelName := c.Param("model_name")
+	modelName := c.Param("id")
 	if modelName == "" {
 		common.ApiErrorT(c, "Model name is required")
 		return
@@ -633,7 +633,7 @@ func parseLogOther(other string) (rejectReason, errorMessage string) {
 // GetModelFailoverHistory returns recent failover/switch events for a model.
 // A failover occurs when a request is retried on a different channel (same RequestId, different ChannelId).
 func GetModelFailoverHistory(c *gin.Context) {
-	modelName := c.Param("model_name")
+	modelName := c.Param("id")
 	if modelName == "" {
 		common.ApiErrorT(c, "Model name is required")
 		return

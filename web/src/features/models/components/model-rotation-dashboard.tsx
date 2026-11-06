@@ -398,151 +398,406 @@ export function ModelRotationDashboard() {
               />
             )}
 
-            {/* Channel Table */}
+            {/* Channel Details & History & Failovers Tabs */}
             <div className='flex-1 min-h-0 border rounded-lg overflow-hidden'>
-              <div className='p-4 border-b bg-muted/50'>
-                <h4 className='font-medium'>{t('Channel Details')}</h4>
-              </div>
-              <div className='p-4'>
-                {channelsLoading ? (
-                  <div className='text-center py-8 text-muted-foreground'>{t('Loading channel details...')}</div>
-                ) : filteredChannels.length ? (
-                  <StaticDataTable
-                    data={filteredChannels}
-                    columns={[
-                      {
-                        id: 'priorityLevel',
-                        header: t('Priority Level'),
-                        cell: (ch) => (
-                          <div className='flex items-center gap-2'>
-                            <span className='font-mono font-medium px-2 py-0.5 bg-primary/10 text-primary rounded'>
-                              {t('Level {{n}}', { n: ch.priorityLevel })}
-                            </span>
-                            {ch.wouldBeSelectedAtRetry !== null && (
-                              <span className='text-xs text-green-600 font-medium animate-pulse'>
-                                {t('→ SELECTED AT THIS RETRY')}
+              <Tabs defaultValue='channels' className='h-full'>
+                <TabsList className='border-b p-2'>
+                  <TabsTrigger value='channels' className='gap-2'>
+                    <Layers className='size-4' />
+                    {t('Channel Details')}
+                  </TabsTrigger>
+                  <TabsTrigger value='history' className='gap-2'>
+                    <History className='size-4' />
+                    {t('Request History')}
+                  </TabsTrigger>
+                  <TabsTrigger value='failovers' className='gap-2'>
+                    <GitBranch className='size-4' />
+                    {t('Failovers')}
+                  </TabsTrigger>
+                </TabsList>
+
+                <TabsContent value='channels' className='flex-1 p-4 overflow-auto'>
+                  {channelsLoading ? (
+                    <div className='text-center py-8 text-muted-foreground'>{t('Loading channel details...')}</div>
+                  ) : filteredChannels.length ? (
+                    <StaticDataTable
+                      data={filteredChannels}
+                      columns={[
+                        {
+                          id: 'priorityLevel',
+                          header: t('Priority Level'),
+                          cell: (ch) => (
+                            <div className='flex items-center gap-2'>
+                              <span className='font-mono font-medium px-2 py-0.5 bg-primary/10 text-primary rounded'>
+                                {t('Level {{n}}', { n: ch.priorityLevel })}
                               </span>
-                            )}
-                          </div>
-                        ),
-                        size: 130,
-                      },
-                      {
-                        id: 'priority',
-                        header: t('Priority'),
-                        cell: (ch) => (
-                          <span className='font-mono font-medium'>{ch.priority}</span>
-                        ),
-                        size: 70,
-                      },
-                      {
-                        id: 'weight',
-                        header: t('Weight'),
-                        cell: (ch) => (
-                          <div className='flex items-center gap-2'>
-                            <span className='font-mono'>{ch.weight}</span>
-                            {ch.weightPercent > 0 && (
-                              <div className='w-24 h-2 bg-muted rounded overflow-hidden'>
-                                <div
-                                  className='h-full bg-primary'
-                                  style={{ width: `${Math.min(ch.weightPercent, 100)}%` }}
-                                />
-                              </div>
-                            )}
-                          </div>
-                        ),
-                        size: 130,
-                      },
-                      {
-                        id: 'name',
-                        header: t('Channel'),
-                        cell: (ch) => (
-                          <div className='flex items-center gap-2'>
-                            <span className='font-medium'>{ch.name}</span>
-                            <StatusBadge
-                              variant={ch.is_enabled ? 'success' : 'secondary'}
-                              label={ch.is_enabled ? t('Enabled') : t('Disabled')}
-                              size='sm'
-                            />
-                            <PenaltyBadge
-                              count={ch.penalty_count}
-                              until={ch.penalty_until * 1000}
-                              reason={ch.penalty_reason}
-                            />
-                            {ch.isExcluded && (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <AlertTriangle className='size-4 text-destructive cursor-help' />
-                                </TooltipTrigger>
-                                <TooltipContent side='top'>
-                                  {ch.exclusionReason}
-                                </TooltipContent>
-                              </Tooltip>
-                            )}
-                          </div>
-                        ),
-                        size: 220,
-                      },
-                      {
-                        id: 'type',
-                        header: t('Type'),
-                        cell: (ch) => (
-                          <StatusBadge variant='neutral' label={String(ch.type)} />
-                        ),
-                        size: 70,
-                      },
-                      {
-                        id: 'group',
-                        header: t('Group'),
-                        cell: (ch) => (
-                          <span className='px-2 py-0.5 bg-muted rounded text-xs'>{ch.group}</span>
-                        ),
-                        size: 120,
-                      },
-                      {
-                        id: 'avg_latency_ms',
-                        header: t('Avg Latency'),
-                        cell: (ch) => formatLatency(ch.avg_latency_ms),
-                        size: 100,
-                      },
-                      {
-                        id: 'success_rate',
-                        header: t('Success Rate'),
-                        cell: (ch) => formatRate(ch.success_rate),
-                        size: 100,
-                      },
-                      {
-                        id: 'error_rate',
-                        header: t('Error Rate'),
-                        cell: (ch) => formatRate(ch.error_rate),
-                        size: 100,
-                      },
-                      {
-                        id: 'cost_per_1k',
-                        header: t('Cost/1k'),
-                        cell: (ch) => formatCost(ch.cost_per_1k),
-                        size: 90,
-                      },
-                      {
-                        id: 'sample_size',
-                        header: t('Samples'),
-                        cell: (ch) => (ch.sample_size ? formatNumber(ch.sample_size) : '—'),
-                        size: 80,
-                      },
-                      {
-                        id: 'recommended_priority',
-                        header: t('Rec. Priority'),
-                        cell: (ch) => ch.recommended_priority !== undefined ? (
-                          <span className='font-mono font-medium'>{ch.recommended_priority}</span>
-                        ) : '—',
-                        size: 100,
-                      },
-                    ]}
-                  />
-                ) : (
-                  <EmptyState title={t('No channels configured for this model')} />
-                )}
-              </div>
+                              {ch.wouldBeSelectedAtRetry !== null && (
+                                <span className='text-xs text-green-600 font-medium animate-pulse'>
+                                  {t('→ SELECTED AT THIS RETRY')}
+                                </span>
+                              )}
+                            </div>
+                          ),
+                          size: 130,
+                        },
+                        {
+                          id: 'priority',
+                          header: t('Priority'),
+                          cell: (ch) => (
+                            <span className='font-mono font-medium'>{ch.priority}</span>
+                          ),
+                          size: 70,
+                        },
+                        {
+                          id: 'weight',
+                          header: t('Weight'),
+                          cell: (ch) => (
+                            <div className='flex items-center gap-2'>
+                              <span className='font-mono'>{ch.weight}</span>
+                              {ch.weightPercent > 0 && (
+                                <div className='w-24 h-2 bg-muted rounded overflow-hidden'>
+                                  <div
+                                    className='h-full bg-primary'
+                                    style={{ width: `\${Math.min(ch.weightPercent, 100)}%` }}
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          ),
+                          size: 130,
+                        },
+                        {
+                          id: 'name',
+                          header: t('Channel'),
+                          cell: (ch) => (
+                            <div className='flex items-center gap-2'>
+                              <span className='font-medium'>{ch.name}</span>
+                              <StatusBadge
+                                variant={ch.is_enabled ? 'success' : 'secondary'}
+                                label={ch.is_enabled ? t('Enabled') : t('Disabled')}
+                                size='sm'
+                              />
+                              <PenaltyBadge
+                                count={ch.penalty_count}
+                                until={ch.penalty_until * 1000}
+                                reason={ch.penalty_reason}
+                              />
+                              {ch.isExcluded && (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <AlertTriangle className='size-4 text-destructive cursor-help' />
+                                  </TooltipTrigger>
+                                  <TooltipContent side='top'>
+                                    {ch.exclusionReason}
+                                  </TooltipContent>
+                                </Tooltip>
+                              )}
+                            </div>
+                          ),
+                          size: 220,
+                        },
+                        {
+                          id: 'type',
+                          header: t('Type'),
+                          cell: (ch) => (
+                            <StatusBadge variant='neutral' label={String(ch.type)} />
+                          ),
+                          size: 70,
+                        },
+                        {
+                          id: 'group',
+                          header: t('Group'),
+                          cell: (ch) => (
+                            <span className='px-2 py-0.5 bg-muted rounded text-xs'>{ch.group}</span>
+                          ),
+                          size: 120,
+                        },
+                        {
+                          id: 'avg_latency_ms',
+                          header: t('Avg Latency'),
+                          cell: (ch) => formatLatency(ch.avg_latency_ms),
+                          size: 100,
+                        },
+                        {
+                          id: 'success_rate',
+                          header: t('Success Rate'),
+                          cell: (ch) => formatRate(ch.success_rate),
+                          size: 100,
+                        },
+                        {
+                          id: 'error_rate',
+                          header: t('Error Rate'),
+                          cell: (ch) => formatRate(ch.error_rate),
+                          size: 100,
+                        },
+                        {
+                          id: 'cost_per_1k',
+                          header: t('Cost/1k'),
+                          cell: (ch) => formatCost(ch.cost_per_1k),
+                          size: 90,
+                        },
+                        {
+                          id: 'sample_size',
+                          header: t('Samples'),
+                          cell: (ch) => (ch.sample_size ? formatNumber(ch.sample_size) : '—'),
+                          size: 80,
+                        },
+                        {
+                          id: 'recommended_priority',
+                          header: t('Rec. Priority'),
+                          cell: (ch) => ch.recommended_priority !== undefined ? (
+                            <span className='font-mono font-medium'>{ch.recommended_priority}</span>
+                          ) : '—',
+                          size: 100,
+                        },
+                      ]}
+                    />
+                  ) : (
+                    <EmptyState title={t('No channels configured for this model')} />
+                  )}
+                </TabsContent>
+
+                <TabsContent value='history' className='flex-1 p-4 overflow-auto'>
+                  {historyLoading ? (
+                    <div className='text-center py-8 text-muted-foreground'>{t('Loading request history...')}</div>
+                  ) : historyLogs.length > 0 ? (
+                    <StaticDataTable
+                      data={historyLogs}
+                      columns={[
+                        {
+                          id: 'created_at',
+                          header: t('Time'),
+                          cell: (log) => formatTimestampToDate(log.created_at),
+                          size: 160,
+                        },
+                        {
+                          id: 'model_name',
+                          header: t('Called Model'),
+                          cell: (log) => (
+                            <span className='font-mono text-sm'>{log.model_name}</span>
+                          ),
+                          size: 180,
+                        },
+                        {
+                          id: 'channel_name',
+                          header: t('Channel'),
+                          cell: (log) => (
+                            <div className='flex items-center gap-2'>
+                              <span className='font-medium'>{log.channel_name || t('Unknown')}</span>
+                              <span className='text-xs text-muted-foreground'>ID: {log.channel_id}</span>
+                            </div>
+                          ),
+                          size: 200,
+                        },
+                        {
+                          id: 'quota',
+                          header: t('Quota'),
+                          cell: (log) => formatNumber(log.quota),
+                          size: 80,
+                        },
+                        {
+                          id: 'tokens',
+                          header: t('Tokens (P/C)'),
+                          cell: (log) => `\${formatNumber(log.prompt_tokens)} / \${formatNumber(log.completion_tokens)}`,
+                          size: 120,
+                        },
+                        {
+                          id: 'use_time',
+                          header: t('Latency'),
+                          cell: (log) => `\${log.use_time}ms`,
+                          size: 80,
+                        },
+                        {
+                          id: 'is_stream',
+                          header: t('Stream'),
+                          cell: (log) => log.is_stream ? (
+                            <StatusBadge variant='success' label={t('Yes')} size='sm' />
+                          ) : (
+                            <StatusBadge variant='secondary' label={t('No')} size='sm' />
+                          ),
+                          size: 70,
+                        },
+                        {
+                          id: 'reject_reason',
+                          header: t('Reject Reason'),
+                          cell: (log) => log.reject_reason ? (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className='text-destructive font-mono text-xs truncate max-w-[200px] block' title={log.reject_reason}>
+                                  {log.reject_reason}
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent side='top' className='max-w-md'>
+                                {log.reject_reason}
+                              </TooltipContent>
+                            </Tooltip>
+                          ) : '—',
+                          size: 180,
+                        },
+                        {
+                          id: 'error_message',
+                          header: t('Error'),
+                          cell: (log) => log.error_message ? (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className='text-orange-600 font-mono text-xs truncate max-w-[200px] block' title={log.error_message}>
+                                  {log.error_message}
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent side='top' className='max-w-md'>
+                                {log.error_message}
+                              </TooltipContent>
+                            </Tooltip>
+                          ) : '—',
+                          size: 180,
+                        },
+                        {
+                          id: 'request_id',
+                          header: t('Request ID'),
+                          cell: (log) => (
+                            <span className='font-mono text-xs truncate max-w-[200px] block' title={log.request_id}>
+                              {log.request_id}
+                            </span>
+                          ),
+                          size: 150,
+                        },
+                      ]}
+                    />
+                  ) : (
+                    <EmptyState
+                      title={t('No request history')}
+                      description={t('This model has not been requested yet')}
+                    />
+                  )}
+                </TabsContent>
+
+                <TabsContent value='failovers' className='flex-1 p-4 overflow-auto'>
+                  {failoverLoading ? (
+                    <div className='text-center py-8 text-muted-foreground'>{t('Loading failover history...')}</div>
+                  ) : failoverLogs.length > 0 ? (
+                    <StaticDataTable
+                      data={failoverLogs}
+                      columns={[
+                        {
+                          id: 'last_attempt_at',
+                          header: t('Time'),
+                          cell: (fo) => formatTimestampToDate(fo.last_attempt_at),
+                          size: 160,
+                        },
+                        {
+                          id: 'request_id',
+                          header: t('Request ID'),
+                          cell: (fo) => (
+                            <span className='font-mono text-xs truncate max-w-[200px] block' title={fo.request_id}>
+                              {fo.request_id}
+                            </span>
+                          ),
+                          size: 180,
+                        },
+                        {
+                          id: 'total_attempts',
+                          header: t('Attempts'),
+                          cell: (fo) => (
+                            <span className='font-mono font-medium'>{fo.total_attempts}</span>
+                          ),
+                          size: 70,
+                        },
+                        {
+                          id: 'channel_names',
+                          header: t('Channels Tried'),
+                          cell: (fo) => (
+                            <div className='flex flex-wrap gap-1'>
+                              {fo.channel_names.map((name, idx) => (
+                                <span key={idx} className='px-2 py-0.5 bg-muted rounded text-xs font-mono'>
+                                  {name} {fo.channels_tried[idx] !== fo.final_channel_id ? (
+                                    <AlertCircle className='inline size-3 text-destructive ml-1' />
+                                  ) : (
+                                    <CheckCircle className='inline size-3 text-green-600 ml-1' />
+                                  )}
+                                </span>
+                              ))}
+                            </div>
+                          ),
+                          size: 280,
+                        },
+                        {
+                          id: 'final_channel_name',
+                          header: t('Final Channel'),
+                          cell: (fo) => (
+                            <span className={`font-medium \${fo.success ? 'text-green-600' : 'text-destructive'}`}>
+                              {fo.final_channel_name || t('None')}
+                            </span>
+                          ),
+                          size: 180,
+                        },
+                        {
+                          id: 'success',
+                          header: t('Result'),
+                          cell: (fo) => fo.success ? (
+                            <StatusBadge variant='success' label={t('Success')} size='sm' />
+                          ) : (
+                            <StatusBadge variant='destructive' label={t('Failed')} size='sm' />
+                          ),
+                          size: 80,
+                        },
+                        {
+                          id: 'reject_reasons',
+                          header: t('Reject Reasons'),
+                          cell: (fo) => fo.reject_reasons.length > 0 ? (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className='text-destructive text-xs truncate max-w-[250px] block' title={fo.reject_reasons.join('; ')}>
+                                  {fo.reject_reasons.slice(0, 2).join('; ')}{fo.reject_reasons.length > 2 ? '...' : ''}
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent side='top' className='max-w-md'>
+                                <div className='space-y-1'>
+                                  {fo.reject_reasons.map((r, i) => (
+                                    <div key={i} className='text-xs font-mono'>{i + 1}. {r}</div>
+                                  ))}
+                                </div>
+                              </TooltipContent>
+                            </Tooltip>
+                          ) : '—',
+                          size: 220,
+                        },
+                        {
+                          id: 'error_messages',
+                          header: t('Errors'),
+                          cell: (fo) => fo.error_messages.length > 0 ? (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className='text-orange-600 text-xs truncate max-w-[250px] block' title={fo.error_messages.join('; ')}>
+                                  {fo.error_messages.slice(0, 2).join('; ')}{fo.error_messages.length > 2 ? '...' : ''}
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent side='top' className='max-w-md'>
+                                <div className='space-y-1'>
+                                  {fo.error_messages.map((e, i) => (
+                                    <div key={i} className='text-xs font-mono'>{i + 1}. {e}</div>
+                                  ))}
+                                </div>
+                              </TooltipContent>
+                            </Tooltip>
+                          ) : '—',
+                          size: 220,
+                        },
+                        {
+                          id: 'duration_ms',
+                          header: t('Duration'),
+                          cell: (fo) => `\${fo.duration_ms}ms`,
+                          size: 80,
+                        },
+                      ]}
+                    />
+                  ) : (
+                    <EmptyState
+                      title={t('No failovers detected')}
+                      description={t('All requests completed on first attempt')}
+                    />
+                  )}
+                </TabsContent>
+              </Tabs>
             </div>
           </div>
         ) : (
