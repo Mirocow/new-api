@@ -203,9 +203,15 @@ func authenticateDashboardRequest(c *gin.Context) (*model.UserBase, service.Auth
 }
 
 func classifyDashboardCredential(c *gin.Context) (*model.UserBase, service.AuthIdentity, dashboardCredentialKind, error) {
+	// Check Authorization header first
 	raw, ok := authorizationToken(c.GetHeader("Authorization"))
 	if !ok {
-		return nil, service.AuthIdentity{}, dashboardCredentialUnmatched, nil
+		// For WebSocket connections, token may be passed as query parameter
+		// since browsers can't send custom headers during WebSocket handshake
+		raw = c.Query("token")
+		if raw == "" {
+			return nil, service.AuthIdentity{}, dashboardCredentialUnmatched, nil
+		}
 	}
 	identity, internal, err := service.ParseDashboardAccessToken(raw)
 	if internal {

@@ -60,7 +60,7 @@ import { formatTimestampRelative, formatTimestampToDate } from '@/lib/format'
 import { handleServerError } from '@/lib/handle-server-error'
 import { createServerError } from '@/lib/server-error-message'
 import { cn } from '@/lib/utils'
-import { useDashboardWS } from '@/hooks'
+import { useDashboardWSLegacy } from '@/hooks'
 
 import {
   deleteStaleSystemInstance,
@@ -577,7 +577,7 @@ export function SystemInstancesPanel() {
     deletingNodeName !== null || deleteStaleInstanceMutation.isPending
 
   // WebSocket for real-time updates
-  useDashboardWS({
+  useDashboardWSLegacy({
     onSystemInstanceUpdated: () => {
       invalidateInstances()
     },

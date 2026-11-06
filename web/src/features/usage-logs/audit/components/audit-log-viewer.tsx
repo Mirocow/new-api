@@ -26,7 +26,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { requireServerSuccess } from '@/lib/server-error-message'
 import { useAuthStore } from '@/stores/auth-store'
-import { useDashboardWS } from '@/hooks'
+import { useDashboardWSLegacy } from '@/hooks'
 
 import { getAuditLogs, type AuditFilters, type AuditLog } from '../api'
 import { useAuditLogColumns } from './audit-log-columns'
@@ -111,7 +111,7 @@ export function AuditLogViewer(props: {
     setFilters((previous) => ({ ...previous, ...patch, p: 1 }))
 
   // WebSocket for real-time updates
-  useDashboardWS({
+  useDashboardWSLegacy({
     onAuditLogCreated: () => {
       // Invalidate the audit logs query to refetch with the latest data
       queryClient.invalidateQueries({

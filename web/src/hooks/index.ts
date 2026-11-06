@@ -32,4 +32,4 @@ export { useDebounce } from './use-debounce'
 export { useMediaQuery } from './use-media-query'
 
 // Dashboard WebSocket
-export { useDashboardWS, type DashboardWSEvent, type UseDashboardWSOptions } from './use-dashboard-ws'
+export { useDashboardWS, useDashboardWSLegacy, type DashboardWSEvent, type UseDashboardWSOptions } from './use-dashboard-ws'

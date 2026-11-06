@@ -31,7 +31,7 @@ import {
   getAdminPlans,
   getSelfSubscriptionFull,
 } from '@/features/subscriptions/api'
-import { useDashboardWS, useMediaQuery } from '@/hooks'
+import { useDashboardWSLegacy, useMediaQuery } from '@/hooks'
 import { useTableUrlState } from '@/hooks/use-table-url-state'
 import { createServerError } from '@/lib/server-error-message'
 import { cn } from '@/lib/utils'
@@ -229,7 +229,7 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
   const isCommon = logCategory === 'common'
 
   // WebSocket for real-time updates
-  useDashboardWS({
+  useDashboardWSLegacy({
     onUsageLogCreated: () => {
       // Invalidate the logs query to refetch with the latest data
       queryClient.invalidateQueries({

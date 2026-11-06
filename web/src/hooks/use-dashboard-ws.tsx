@@ -25,6 +25,14 @@ export interface DashboardWSEvent {
   ts: number
 }
 
+export interface UseDashboardWSOptions {
+  onUsageLogCreated?: (payload: any) => void
+  onAuditLogCreated?: (payload: any) => void
+  onSystemInstanceUpdated?: (payload: any) => void
+  onSystemInstanceDeleted?: (payload: any) => void
+  enabled?: boolean
+}
+
 type HandlerMap = {
   usage_log_created: Set<(payload: any) => void>
   audit_log_created: Set<(payload: any) => void>

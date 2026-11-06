@@ -43,6 +43,7 @@ import {
 import { subscribeAuthSessionEvents } from '@/lib/auth-session-sync'
 import { resolveLegacyRoute } from '@/lib/legacy-route'
 import { useAuthStore } from '@/stores/auth-store'
+import { DashboardWSProvider } from '@/hooks/use-dashboard-ws'
 
 function RootComponent() {
   const navigate = useNavigate()
@@ -94,15 +95,17 @@ function RootComponent() {
 
   return (
     <ThemeCustomizationProvider>
-      <NavigationProgress />
-      <Outlet />
-      <Toaster closeButton duration={5000} position='top-center' richColors />
-      {import.meta.env.MODE === 'development' && (
-        <>
-          <ReactQueryDevtools buttonPosition='bottom-left' />
-          <TanStackRouterDevtools position='bottom-right' />
-        </>
-      )}
+      <DashboardWSProvider>
+        <NavigationProgress />
+        <Outlet />
+        <Toaster closeButton duration={5000} position='top-center' richColors />
+        {import.meta.env.MODE === 'development' && (
+          <>
+            <ReactQueryDevtools buttonPosition='bottom-left' />
+            <TanStackRouterDevtools position='bottom-right' />
+          </>
+        )}
+      </DashboardWSProvider>
     </ThemeCustomizationProvider>
   )
 }
