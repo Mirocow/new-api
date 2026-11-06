@@ -20,7 +20,7 @@ func SetApiRouter(router *gin.Engine) {
 	apiRouter.Use(middleware.RouteTag("api"))
 	apiRouter.Use(gzip.Gzip(gzip.DefaultCompression))
 	apiRouter.Use(middleware.AccessTokenAudit())
-	apiRouter.Use(middleware.BodyStorageCleanup()) // 清理请求体存储
+	apiRouter.Use(middleware.BodyStorageCleanup())
 	apiRouter.Use(middleware.GlobalAPIRateLimit())
 	anonymousRequestBodyLimit := middleware.AnonymousRequestBodyLimit()
 	{
@@ -34,7 +34,6 @@ func SetApiRouter(router *gin.Engine) {
 		apiRouter.GET("/user-agreement", controller.GetUserAgreement)
 		apiRouter.GET("/privacy-policy", controller.GetPrivacyPolicy)
 		apiRouter.GET("/about", controller.GetAbout)
-		//apiRouter.GET("/midjourney", controller.GetMidjourney)
 		apiRouter.GET("/home_page_content", controller.GetHomePageContent)
 		apiRouter.GET("/pricing", middleware.HeaderNavModuleAuth("pricing"), controller.GetPricing)
 		perfMetricsRoute := apiRouter.Group("/perf-metrics")
@@ -86,7 +85,6 @@ func SetApiRouter(router *gin.Engine) {
 			userRoute.POST("/login/passkey/finish", middleware.CriticalRateLimit(), middleware.DisableCache(), anonymousRequestBodyLimit, controller.LoginPasskeyFinish)
 			userRoute.POST("/passkey/login/begin", middleware.CriticalRateLimit(), middleware.DisableCache(), anonymousRequestBodyLimit, controller.PasskeyLoginBegin)
 			userRoute.POST("/passkey/login/finish", middleware.CriticalRateLimit(), middleware.DisableCache(), anonymousRequestBodyLimit, controller.PasskeyLoginFinish)
-			//userRoute.POST("/tokenlog", middleware.CriticalRateLimit(), controller.TokenLog)
 			userRoute.POST("/epay/notify", anonymousRequestBodyLimit, controller.EpayNotify)
 			userRoute.GET("/epay/notify", controller.EpayNotify)
 			userRoute.GET("/groups", controller.GetUserGroups)
@@ -410,13 +408,14 @@ func SetApiRouter(router *gin.Engine) {
 			modelsRoute.GET("/missing", controller.GetMissingModels)
 			modelsRoute.GET("/", controller.GetAllModelsMeta)
 			modelsRoute.GET("/search", controller.SearchModelsMeta)
+			// Specific routes with additional path segments must come before /:id
+			modelsRoute.GET("/:model_name/channels", controller.GetModelChannels)
+			modelsRoute.GET("/:model_name/history", controller.GetModelRequestHistory)
+			modelsRoute.GET("/:model_name/failovers", controller.GetModelFailoverHistory)
 			modelsRoute.GET("/:id", controller.GetModelMeta)
 			modelsRoute.POST("/", controller.CreateModelMeta)
 			modelsRoute.PUT("/", controller.UpdateModelMeta)
 			modelsRoute.DELETE("/:id", controller.DeleteModelMeta)
-			modelsRoute.GET("/:model_name/channels", controller.GetModelChannels)
-			modelsRoute.GET("/:model_name/history", controller.GetModelRequestHistory)
-			modelsRoute.GET("/:model_name/failovers", controller.GetModelFailoverHistory)
 			}
 
 		// Deployments (model deployment management)
