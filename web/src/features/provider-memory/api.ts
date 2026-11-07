@@ -19,7 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { api } from '@/lib/api'
 import { getChannelTypeLabel } from '@/features/channels/lib/channel-utils'
 import { extractMappingSourceModels } from '@/features/channels/lib/model-mapping-validation'
-import type { GetChannelsResponse } from '@/features/channels/types'
+import type { Channel, GetChannelsResponse } from '@/features/channels/types'
 
 export interface ProviderMemoryConfig {
   enabled: boolean
@@ -215,11 +215,11 @@ export async function getRoutingHintBySuccess(model: string) {
 // ============================================================================
 
 export interface ProviderOption {
-  // Channel type id (the provider family, e.g. 1 = OpenAI)
+  /** Channel type id (the provider family, e.g. 1 = OpenAI) */
   value: number
-  // Human-readable provider label (i18n key)
+  /** i18n key of the provider label; call t() before rendering */
   label: string
-  // Number of enabled channels of this type
+  /** Number of enabled channels of this type */
   channelCount: number
 }
 
@@ -239,60 +239,74 @@ export interface ModelOption {
  * union of each channel's `models` list and its `model_mapping` keys (the
  * aliases users actually request). Models are grouped by provider so the form
  * can render two dependent autocomplete inputs.
+ *
+ * The channel API caps `page_size` at 100, so the list is fetched page by page.
  */
 export async function getChannelsForMentalModel(): Promise<{
   providers: ProviderOption[]
   models: ModelOption[]
 }> {
-  const res = await api.get<GetChannelsResponse>('/api/channel', {
-    params: { status: 'enabled', page_size: 1000 },
-  })
-
-  const channels = res.data.data?.items ?? []
   const providerMap = new Map<number, ProviderOption>()
   const modelMap = new Map<string, ModelOption>()
 
-  for (const ch of channels) {
-    const existing = providerMap.get(ch.type)
-    if (existing) {
-      existing.channelCount += 1
-    } else {
-      providerMap.set(ch.type, {
-        value: ch.type,
-        label: getChannelTypeLabel(ch.type),
-        channelCount: 1,
-      })
-    }
+  let page = 1
+  const pageSize = 100
 
-    // Models declared on the channel
-    const declared = (ch.models || '')
-      .split(',')
-      .map((m) => m.trim())
-      .filter(Boolean)
-    for (const model of declared) {
-      const key = `${ch.type}:${model}`
-      if (!modelMap.has(key)) {
-        modelMap.set(key, {
-          value: model,
-          label: model,
-          channelType: ch.type,
-          isAlias: false,
+  function consume(items: Channel[]) {
+    for (const ch of items) {
+      const existing = providerMap.get(ch.type)
+      if (existing) {
+        existing.channelCount += 1
+      } else {
+        providerMap.set(ch.type, {
+          value: ch.type,
+          label: getChannelTypeLabel(ch.type),
+          channelCount: 1,
         })
       }
-    }
 
-    // Aliases: keys of model_mapping are requestable names remapped upstream
-    for (const alias of extractMappingSourceModels(ch.model_mapping || '')) {
-      const key = `${ch.type}:${alias}`
-      if (!modelMap.has(key)) {
-        modelMap.set(key, {
-          value: alias,
-          label: alias,
-          channelType: ch.type,
-          isAlias: true,
-        })
+      // Models declared on the channel
+      for (const model of (ch.models || '')
+        .split(',')
+        .map((m) => m.trim())
+        .filter(Boolean)) {
+        const key = `${ch.type}:${model}`
+        if (!modelMap.has(key)) {
+          modelMap.set(key, {
+            value: model,
+            label: model,
+            channelType: ch.type,
+            isAlias: false,
+          })
+        }
+      }
+
+      // Aliases: keys of model_mapping are requestable names remapped upstream
+      for (const alias of extractMappingSourceModels(ch.model_mapping || '')) {
+        const key = `${ch.type}:${alias}`
+        if (!modelMap.has(key)) {
+          modelMap.set(key, {
+            value: alias,
+            label: alias,
+            channelType: ch.type,
+            isAlias: true,
+          })
+        }
       }
     }
+  }
+
+  // Fetch every page of enabled channels (backend caps page_size at 100)
+  for (;;) {
+    const res = await api.get<GetChannelsResponse>('/api/channel', {
+      params: { status: 'enabled', p: page, page_size: pageSize },
+    })
+    const items = res.data.data?.items ?? []
+    consume(items)
+    const total = res.data.data?.total ?? 0
+    if (items.length < pageSize || page * pageSize >= total) break
+    page += 1
+    if (page > 50) break
   }
 
   return {
