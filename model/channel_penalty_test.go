@@ -50,48 +50,37 @@ func TestChannelPenaltyEscalation(t *testing.T) {
 	// Enable escalation in settings
 	setting := operation_setting.GetChannelPenaltySetting()
 	setting.Enabled = true
-	originalEscalation := setting.EscalationEnabled
-	originalMaxPenalty := setting.MaxPenaltySeconds
+	originalMaxPenalties := setting.MaxPenalties
 	defer func() {
 		// Restore settings
-		setting.EscalationEnabled = originalEscalation
-		setting.MaxPenaltySeconds = originalMaxPenalty
+		setting.MaxPenalties = originalMaxPenalties
 		setting.Enabled = false
 	}()
 
-	setting.EscalationEnabled = true
-	setting.MaxPenaltySeconds = 3600 // 1 hour max
+	setting.MaxPenalties = 2
 
 	channelID := 99998
 	reason := "escalation test"
 	baseDuration := 10 * time.Second
 
-	// First penalty
+	// First penalty: below the escalation threshold, base duration
 	PenalizeChannel(channelID, baseDuration, reason)
 	assert.Equal(t, 1, GetPenaltyCount(channelID))
 	remaining1 := GetPenaltyRemainingSeconds(channelID)
 	assert.Greater(t, remaining1, 0)
 	assert.LessOrEqual(t, remaining1, int(baseDuration.Seconds()))
 
-	// Second penalty (should escalate) - penalize again without clearing
+	// Second penalty reaches MaxPenalties: base * count
 	PenalizeChannel(channelID, baseDuration, reason)
 	assert.Equal(t, 2, GetPenaltyCount(channelID))
 	remaining2 := GetPenaltyRemainingSeconds(channelID)
-	// Should be 2 * baseDuration = 20 seconds
-	assert.Greater(t, remaining2, remaining1)
+	assert.Greater(t, remaining2, int(baseDuration.Seconds()))
 
-	// Third penalty (should escalate further)
+	// Third penalty escalates further
 	PenalizeChannel(channelID, baseDuration, reason)
 	assert.Equal(t, 3, GetPenaltyCount(channelID))
 	remaining3 := GetPenaltyRemainingSeconds(channelID)
 	assert.Greater(t, remaining3, remaining2)
-
-	// Fourth penalty (should hit max)
-	PenalizeChannel(channelID, baseDuration, reason)
-	assert.Equal(t, 4, GetPenaltyCount(channelID))
-	remaining4 := GetPenaltyRemainingSeconds(channelID)
-	// Should be capped at MaxPenaltySeconds (3600)
-	assert.LessOrEqual(t, remaining4, setting.MaxPenaltySeconds)
 
 	// Test that clearing resets the count
 	ClearChannelPenalty(channelID)
@@ -102,7 +91,12 @@ func TestChannelPenaltyEscalation(t *testing.T) {
 func TestChannelPenaltyResetOnSuccess(t *testing.T) {
 	setting := operation_setting.GetChannelPenaltySetting()
 	setting.Enabled = true
-	defer func() { setting.Enabled = false }()
+	originalThreshold := setting.RecoveryThreshold
+	defer func() {
+		setting.RecoveryThreshold = originalThreshold
+		setting.Enabled = false
+	}()
+	setting.RecoveryThreshold = 2
 	ClearAllChannelPenalties()
 
 	channelID := 99997
@@ -112,11 +106,15 @@ func TestChannelPenaltyResetOnSuccess(t *testing.T) {
 	PenalizeChannel(channelID, baseDuration, reason)
 	assert.Equal(t, 1, GetPenaltyCount(channelID))
 
-	// Reset on success
+	// One success is below the recovery threshold: counter stays
+	ResetPenaltyCountOnSuccess(channelID)
+	assert.Equal(t, 1, GetPenaltyCount(channelID))
+
+	// Reaching the threshold clears the counter, but the active
+	// penalty itself still exists until expiry
 	ResetPenaltyCountOnSuccess(channelID)
 	assert.Equal(t, 0, GetPenaltyCount(channelID))
 	assert.Equal(t, "", GetPenaltyReason(channelID))
-	// Penalty should still exist until expiry
 	assert.True(t, IsChannelPenalized(channelID))
 }
 

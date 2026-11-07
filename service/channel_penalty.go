@@ -13,16 +13,16 @@ type PenaltyInfo = model.PenaltyInfo
 
 // Re-export penalty functions from model
 var (
-	PenalizeChannel           = model.PenalizeChannel
-	IsChannelPenalized        = model.IsChannelPenalized
+	PenalizeChannel            = model.PenalizeChannel
+	IsChannelPenalized         = model.IsChannelPenalized
 	GetPenaltyRemainingSeconds = model.GetPenaltyRemainingSeconds
-	GetPenaltyReason          = model.GetPenaltyReason
-	GetPenaltyCount           = model.GetPenaltyCount
+	GetPenaltyReason           = model.GetPenaltyReason
+	GetPenaltyCount            = model.GetPenaltyCount
 	ResetPenaltyCountOnSuccess = model.ResetPenaltyCountOnSuccess
-	ClearChannelPenalty       = model.ClearChannelPenalty
-	ClearAllChannelPenalties  = model.ClearAllChannelPenalties
-	GetAllPenalizedChannels   = model.GetAllPenalizedChannels
-	CleanupExpired            = model.CleanupExpired
+	ClearChannelPenalty        = model.ClearChannelPenalty
+	ClearAllChannelPenalties   = model.ClearAllChannelPenalties
+	GetAllPenalizedChannels    = model.GetAllPenalizedChannels
+	CleanupExpired             = model.CleanupExpired
 )
 
 // ShouldPenalizeChannel determines if a channel should be penalized based on the error.
@@ -41,7 +41,7 @@ func ShouldPenalizeChannel(err *types.NewAPIError) bool {
 	if types.IsSkipRetryError(err) {
 		return false
 	}
-	return operation_setting.ShouldMatchStatusCodeRanges(setting.StatusCodes, err.StatusCode)
+	return operation_setting.ShouldMatchStatusCodeRanges(setting.ParsedStatusCodes(), err.StatusCode)
 }
 
 // GetPenaltyDuration returns the base penalty duration from settings.

@@ -162,7 +162,7 @@ const OPERATIONS_SECTIONS = [
           'channel_penalty_setting.enabled':
             settings['channel_penalty_setting.enabled'] ?? false,
           'channel_penalty_setting.status_codes':
-            settings['channel_penalty_setting.status_codes'] ?? '500,502,503,504',
+            settings['channel_penalty_setting.status_codes'] ?? '429,500-599',
           'channel_penalty_setting.duration':
             settings['channel_penalty_setting.duration'] ?? 60,
           'channel_penalty_setting.max_penalties':

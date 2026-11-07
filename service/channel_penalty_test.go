@@ -21,10 +21,7 @@ func TestShouldPenalizeChannel(t *testing.T) {
 
 	setting := operation_setting.GetChannelPenaltySetting()
 	setting.Enabled = true
-	setting.StatusCodes = []operation_setting.StatusCodeRange{
-		{Start: 429, End: 429},
-		{Start: 500, End: 503},
-	}
+	setting.StatusCodes = "429,500-599"
 
 	tests := []struct {
 		name           string
@@ -79,7 +76,7 @@ func TestShouldPenalizeChannel(t *testing.T) {
 		{
 			name:           "non-matching status code 504",
 			err:            types.NewError(nil, types.ErrorCodeBadResponseStatusCode, types.ErrOptionWithStatusCode(504)),
-			shouldPenalize: false,
+			shouldPenalize: true,
 		},
 	}
 
@@ -132,7 +129,11 @@ func TestGetPenaltyDuration(t *testing.T) {
 func TestPenalizeChannelIntegration(t *testing.T) {
 	setting := operation_setting.GetChannelPenaltySetting()
 	setting.Enabled = true
-	defer func() { setting.Enabled = false }()
+	setting.RecoveryThreshold = 1
+	defer func() {
+		setting.Enabled = false
+		setting.RecoveryThreshold = 5
+	}()
 
 	ClearAllChannelPenalties()
 

@@ -147,7 +147,7 @@ export function ChannelPenaltySection({
                     <FormControl>
                       <Input
                         {...field}
-                        placeholder='500,502,503,504'
+                        placeholder='429,500-599'
                         disabled={!enabled}
                       />
                     </FormControl>

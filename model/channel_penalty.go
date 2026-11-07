@@ -2,7 +2,6 @@ package model
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
@@ -16,10 +15,11 @@ const (
 )
 
 var (
-	penaltyLock     sync.RWMutex
-	penaltyChannels = make(map[int]int64) // channelID -> penalty until (unix nano)
-	penaltyCount    = make(map[int]int)   // channelID -> consecutive penalty count (for escalation)
-	penaltyReason   = make(map[int]string) // channelID -> reason for penalty
+	penaltyLock      sync.RWMutex
+	penaltyChannels  = make(map[int]int64)  // channelID -> penalty until (unix nano)
+	penaltyCount     = make(map[int]int)    // channelID -> consecutive penalty count (for escalation)
+	penaltyReason    = make(map[int]string) // channelID -> reason for penalty
+	penaltySuccesses = make(map[int]int)    // channelID -> consecutive successful requests since the last penalty
 )
 
 // PenaltyInfo represents a penalized channel with its remaining time.
@@ -46,18 +46,17 @@ func PenalizeChannel(channelID int, baseDuration time.Duration, reason string) {
 	penaltyLock.Unlock()
 
 	duration := baseDuration
-	if setting.EscalationEnabled {
-		// Escalate: duration * 2^(count-1), capped at MaxPenaltySeconds
-		duration = baseDuration * time.Duration(1<<(count-1))
-		if max := time.Duration(setting.MaxPenaltySeconds) * time.Second; duration > max {
-			duration = max
-		}
+	if setting.MaxPenalties > 0 && count >= setting.MaxPenalties {
+		// Escalate: once the channel reaches MaxPenalties strikes, it is
+		// excluded for the base duration multiplied by its penalty count.
+		duration = baseDuration * time.Duration(count)
 	}
 
 	until := time.Now().Add(duration).UnixNano()
 	penaltyLock.Lock()
 	penaltyChannels[channelID] = until
 	penaltyReason[channelID] = reason
+	delete(penaltySuccesses, channelID)
 	penaltyLock.Unlock()
 
 	// Redis backing for multi-instance (optional, best-effort)
@@ -66,12 +65,14 @@ func PenalizeChannel(channelID int, baseDuration time.Duration, reason string) {
 		key := penaltyCacheKeyPrefix + fmt.Sprintf("%d", channelID)
 		data := map[string]any{
 			"until":        until,
-			"count":        penaltyCount[channelID],
+			"count":        count,
 			"reason":       reason,
 			"duration_sec": int(duration.Seconds()),
 		}
-		jsonData, _ := json.Marshal(data)
-		common.RDB.Set(ctx, key, jsonData, duration)
+		jsonData, err := common.Marshal(data)
+		if err == nil {
+			common.RDB.Set(ctx, key, jsonData, duration)
+		}
 	}
 }
 
@@ -127,15 +128,25 @@ func GetPenaltyCount(channelID int) int {
 	return count
 }
 
-// ResetPenaltyCountOnSuccess clears escalation counter after a successful request.
+// ResetPenaltyCountOnSuccess tracks consecutive successful requests and
+// clears the escalation counter once RecoveryThreshold successes accumulate.
 func ResetPenaltyCountOnSuccess(channelID int) {
+	setting := operation_setting.GetChannelPenaltySetting()
+	threshold := max(setting.RecoveryThreshold, 1)
+
+	recovered := false
 	penaltyLock.Lock()
-	delete(penaltyCount, channelID)
-	delete(penaltyReason, channelID)
+	penaltySuccesses[channelID]++
+	if penaltySuccesses[channelID] >= threshold {
+		recovered = true
+		delete(penaltyCount, channelID)
+		delete(penaltyReason, channelID)
+		delete(penaltySuccesses, channelID)
+	}
 	penaltyLock.Unlock()
 
 	// Also clear from Redis
-	if common.RedisEnabled {
+	if recovered && common.RedisEnabled {
 		ctx := context.Background()
 		key := penaltyCacheKeyPrefix + fmt.Sprintf("%d", channelID)
 		common.RDB.Del(ctx, key)
@@ -148,6 +159,7 @@ func ClearChannelPenalty(channelID int) {
 	delete(penaltyChannels, channelID)
 	delete(penaltyCount, channelID)
 	delete(penaltyReason, channelID)
+	delete(penaltySuccesses, channelID)
 	penaltyLock.Unlock()
 
 	if common.RedisEnabled {
@@ -163,6 +175,7 @@ func ClearAllChannelPenalties() {
 	penaltyChannels = make(map[int]int64)
 	penaltyCount = make(map[int]int)
 	penaltyReason = make(map[int]string)
+	penaltySuccesses = make(map[int]int)
 	penaltyLock.Unlock()
 
 	if common.RedisEnabled {
@@ -181,10 +194,10 @@ func GetAllPenalizedChannels() []PenaltyInfo {
 	penaltyLock.RLock()
 	// Copy to avoid holding lock during channel name lookup
 	type localInfo struct {
-		id        int
-		until     int64
-		reason    string
-		count     int
+		id     int
+		until  int64
+		reason string
+		count  int
 	}
 	var local []localInfo
 	for id, until := range penaltyChannels {
@@ -226,12 +239,12 @@ func GetAllPenalizedChannels() []PenaltyInfo {
 				continue
 			}
 			var redisData struct {
-				Until        int64  `json:"until"`
-				Count        int    `json:"count"`
-				Reason       string `json:"reason"`
-				DurationSec  int    `json:"duration_sec"`
+				Until       int64  `json:"until"`
+				Count       int    `json:"count"`
+				Reason      string `json:"reason"`
+				DurationSec int    `json:"duration_sec"`
 			}
-			if err := json.Unmarshal([]byte(data), &redisData); err != nil {
+			if err := common.Unmarshal([]byte(data), &redisData); err != nil {
 				continue
 			}
 			remaining := redisData.Until - time.Now().UnixNano()
@@ -279,6 +292,7 @@ func CleanupExpired() {
 			delete(penaltyChannels, id)
 			delete(penaltyCount, id)
 			delete(penaltyReason, id)
+			delete(penaltySuccesses, id)
 		}
 	}
 	penaltyLock.Unlock()
