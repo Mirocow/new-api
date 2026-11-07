@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronRight, Plus, Trash2 } from 'lucide-react'
+import { ChevronDown, ChevronRight, Plus, Trash2, Info, Sparkles } from 'lucide-react'
 /*
 Copyright (C) 2023-2026 QuantumNous
 
@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { StaticDataTable } from '@/components/data-table'
@@ -45,18 +45,29 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Textarea } from '@/components/ui/textarea'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { toIntlLocale } from '@/i18n/languages'
 import { formatTimestampRelative } from '@/lib/format'
 
 import {
+  useChannelsForMentalModel,
   useDeleteProviderMentalModel,
+  usePreferredModelForChannelType,
   useProviderMentalModels,
   useUpsertProviderMentalModel,
 } from '../hooks'
+import type { ChannelTypeOption, ModelOption } from '../api'
 
 export function MemoryMentalModelsTable() {
   const { t, i18n } = useTranslation()
   const { data, isLoading, isError } = useProviderMentalModels()
+  const { data: channelsData, isLoading: channelsLoading } = useChannelsForMentalModel()
   const upsert = useUpsertProviderMentalModel()
   const del = useDeleteProviderMentalModel()
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -65,10 +76,22 @@ export function MemoryMentalModelsTable() {
   // Form state
   const [sourceQuery, setSourceQuery] = useState('')
   const [scopeModel, setScopeModel] = useState('')
+  const [selectedChannelType, setSelectedChannelType] = useState<number | null>(null)
   const [content, setContent] = useState('')
   const [payload, setPayload] = useState('[]')
   const [tags, setTags] = useState('')
   const [autoRefresh, setAutoRefresh] = useState(true)
+
+  // Fetch preferred model when channel type changes
+  const { data: preferredModel, isLoading: preferredModelLoading } = usePreferredModelForChannelType(selectedChannelType)
+
+  // Memoize channel types and filtered models
+  const channelTypes = useMemo(() => channelsData?.channelTypes ?? [], [channelsData?.channelTypes])
+  const models = useMemo(() => channelsData?.models ?? [], [channelsData?.models])
+  const filteredModels = useMemo(() => {
+    if (!selectedChannelType) return models
+    return models.filter(m => m.channelType === selectedChannelType)
+  }, [models, selectedChannelType])
 
   const rows = data?.data ?? []
 
@@ -90,6 +113,23 @@ export function MemoryMentalModelsTable() {
 
   function handleDelete(sq: string, sm: string) {
     del.mutate({ sourceQuery: sq, scopeModel: sm })
+  }
+
+  function resetForm() {
+    setSourceQuery('')
+    setScopeModel('')
+    setSelectedChannelType(null)
+    setContent('')
+    setPayload('[]')
+    setTags('')
+    setAutoRefresh(true)
+  }
+
+  function handleDialogOpenChange(open: boolean) {
+    setDialogOpen(open)
+    if (!open) {
+      resetForm()
+    }
   }
 
   if (isLoading) {
@@ -123,14 +163,14 @@ export function MemoryMentalModelsTable() {
         <CardTitle>
           {t('Mental models ({{count}})', { count: rows.length })}
         </CardTitle>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <Dialog open={dialogOpen} onOpenChange={handleDialogOpenChange}>
           <DialogTrigger asChild>
             <Button size='sm'>
               <Plus className='mr-1 size-4' aria-hidden='true' />
               {t('Add')}
             </Button>
           </DialogTrigger>
-          <DialogContent className='sm:max-w-[520px]'>
+          <DialogContent className='sm:max-w-[560px]'>
             <DialogHeader>
               <DialogTitle>{t('Create / Update Mental Model')}</DialogTitle>
               <DialogDescription>
@@ -149,15 +189,91 @@ export function MemoryMentalModelsTable() {
                   onChange={(e) => setSourceQuery(e.target.value)}
                 />
               </div>
+
+              {/* Channel Type (Provider) Selector */}
               <div className='grid gap-2'>
-                <Label htmlFor='mm-scope'>{t('Scope model')}</Label>
-                <Input
-                  id='mm-scope'
-                  placeholder='gpt-4o or *'
-                  value={scopeModel}
-                  onChange={(e) => setScopeModel(e.target.value)}
-                />
+                <Label htmlFor='mm-channel-type'>{t('Provider (Channel Type)')}</Label>
+                <Select value={selectedChannelType?.toString() ?? ''} onValueChange={(v) => setSelectedChannelType(v ? parseInt(v, 10) : null)}>
+                  <SelectTrigger id='mm-channel-type'>
+                    <SelectValue placeholder={t('Select a provider')} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {channelTypes.map((ct) => (
+                      <SelectItem key={ct.value} value={ct.value.toString()}>
+                        {ct.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
+
+              {/* Model Selector (filtered by channel type) */}
+              <div className='grid gap-2'>
+                <Label htmlFor='mm-scope'>{t('Model (Scope)')}</Label>
+                <div className='relative'>
+                  <Select value={scopeModel} onValueChange={setScopeModel}>
+                    <SelectTrigger id='mm-scope'>
+                      <SelectValue placeholder={selectedChannelType ? t('Select a model') : t('Select a provider first')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {selectedChannelType ? (
+                        <>
+                          <SelectItem value='*'>{t('Global (all models)')}</SelectItem>
+                          <SelectSeparator />
+                          {filteredModels.map((m) => (
+                            <SelectItem key={`${m.channelType}:${m.value}`} value={m.value}>
+                              {m.label} <span className='text-muted-foreground ml-2 text-xs'>({m.channelName})</span>
+                            </SelectItem>
+                          ))}
+                          {filteredModels.length === 0 && (
+                            <SelectItem disabled value=''>
+                              {t('No models found for this provider')}
+                            </SelectItem>
+                          )}
+                        </>
+                      ) : (
+                        <SelectItem disabled value=''>
+                          {t('Select a provider first')}
+                        </SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
+                  {/* Preferred model hint */}
+                  {selectedChannelType && preferredModel && !preferredModelLoading && (
+                    <div className='absolute right-2 top-full mt-1 z-10'>
+                      <Button
+                        variant='ghost'
+                        size='icon'
+                        className='h-6 w-6 p-0 text-muted-foreground hover:text-primary'
+                        onClick={() => setScopeModel(preferredModel)}
+                        title={t('Use preferred model: {{model}}', { model: preferredModel })}
+                      >
+                        <Sparkles className='size-3.5' aria-hidden='true' />
+                      </Button>
+                    </div>
+                  )}
+                </div>
+                {selectedChannelType && preferredModel && !preferredModelLoading && (
+                  <p className='text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1'>
+                    <Info className='size-3' aria-hidden='true' />
+                    {t('Preferred model for this provider: {{model}}', { model: preferredModel })}
+                    <Button
+                      variant='ghost'
+                      size='icon'
+                      className='h-5 w-5 p-0 text-xs'
+                      onClick={() => setScopeModel(preferredModel)}
+                    >
+                      {t('Use')}
+                    </Button>
+                  </p>
+                )}
+                {selectedChannelType && !preferredModel && !preferredModelLoading && filteredModels.length > 0 && (
+                  <p className='text-xs text-amber-600 dark:text-amber-400'>
+                    {t('No preferred model detected. Select one from the list.')}
+                  </p>
+                )}
+              </div>
+
               <div className='grid gap-2'>
                 <Label htmlFor='mm-content'>{t('Content')}</Label>
                 <Textarea
@@ -196,7 +312,7 @@ export function MemoryMentalModelsTable() {
               </div>
             </div>
             <DialogFooter>
-              <Button onClick={handleSave} disabled={upsert.isPending}>
+              <Button onClick={handleSave} disabled={upsert.isPending || !sourceQuery || !scopeModel}>
                 {t('Save')}
               </Button>
             </DialogFooter>

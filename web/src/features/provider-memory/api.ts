@@ -206,3 +206,106 @@ export async function getRoutingHintBySuccess(model: string) {
   )
   return res.data
 }
+
+// ============================================================================
+// Channel & Model helpers for Mental Model creation
+// ============================================================================
+
+export interface ChannelTypeOption {
+  value: number
+  label: string
+  baseUrl: string
+}
+
+export interface ModelOption {
+  value: string
+  label: string
+  channelType: number
+  channelName: string
+}
+
+import type { GetChannelsResponse } from '@/features/channels/types'
+
+/**
+ * Get all enabled channels with their types and models for mental model scope selection
+ */
+export async function getChannelsForMentalModel(): Promise<{
+  channelTypes: ChannelTypeOption[]
+  models: ModelOption[]
+}> {
+  const res = await api.get<GetChannelsResponse>('/api/channel', {
+    params: { status: 'enabled', page_size: 1000 }
+  })
+  
+  const channels = res.data.data?.items ?? []
+  
+  // Build unique channel types
+  const typeMap = new Map<number, ChannelTypeOption>()
+  const modelMap = new Map<string, ModelOption>()
+  
+  for (const ch of channels) {
+    if (!typeMap.has(ch.type)) {
+      typeMap.set(ch.type, {
+        value: ch.type,
+        label: ch.name || `Type ${ch.type}`,
+        baseUrl: ch.base_url || '',
+      })
+    }
+    
+    // Parse models from the channel
+    if (ch.models) {
+      const models = ch.models.split(',').map(m => m.trim()).filter(Boolean)
+      for (const model of models) {
+        const key = `${ch.type}:${model}`
+        if (!modelMap.has(key)) {
+          modelMap.set(key, {
+            value: model,
+            label: model,
+            channelType: ch.type,
+            channelName: ch.name,
+          })
+        }
+      }
+    }
+  }
+  
+  return {
+    channelTypes: Array.from(typeMap.values()).sort((a, b) => a.label.localeCompare(b.label)),
+    models: Array.from(modelMap.values()).sort((a, b) => a.label.localeCompare(b.label)),
+  }
+}
+
+/**
+ * Get preferred model for a given channel type (most commonly used model)
+ */
+export async function getPreferredModelForChannelType(channelType: number): Promise<string | null> {
+  const res = await api.get<GetChannelsResponse>('/api/channel', {
+    params: { status: 'enabled', type: channelType, page_size: 100 }
+  })
+  
+  const channels = res.data.data?.items ?? []
+  if (channels.length === 0) return null
+  
+  // Count model occurrences
+  const modelCounts = new Map<string, number>()
+  for (const ch of channels) {
+    if (ch.models) {
+      const models = ch.models.split(',').map(m => m.trim()).filter(Boolean)
+      for (const model of models) {
+        modelCounts.set(model, (modelCounts.get(model) || 0) + 1)
+      }
+    }
+  }
+  
+  // Return most common model
+  let maxCount = 0
+  let preferredModel = null
+  for (const [model, count] of modelCounts) {
+    if (count > maxCount) {
+      maxCount = count
+      preferredModel = model
+    }
+  }
+  
+  return preferredModel
+}
