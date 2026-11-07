@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ChevronDown, ChevronRight, Info, Plus, Trash2 } from 'lucide-react'
+import { ChevronDown, ChevronRight, Plus, Trash2 } from 'lucide-react'
 
 import { StaticDataTable } from '@/components/data-table'
 import { EmptyState } from '@/components/empty-state'
@@ -34,7 +34,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
   Select,
@@ -51,7 +50,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Textarea } from '@/components/ui/textarea'
 import { ComboboxInput, type ComboboxInputOption } from '@/components/ui/combobox-input'
 import { toIntlLocale } from '@/i18n/languages'
 import { formatTimestampRelative } from '@/lib/format'
@@ -65,12 +63,24 @@ import {
 import type { ProviderMentalModel } from '../api'
 
 // Source query intents recognized by the backend consolidation job
-// (see classifyQuery in service/providermemory): queries containing these
-// keywords produce ranked answers; anything else produces a plain summary.
-const SOURCE_QUERY_PRESETS = [
-  'best channel by latency',
-  'best channel by success',
-  'best channel by cost',
+// (see classifyQuery in service/providermemory). The canonical strings below
+// are what the ranking logic expects; anything else only yields a summary.
+const SOURCE_QUERIES = [
+  {
+    value: 'best channel by latency',
+    labelKey: 'Fastest channel',
+    hintKey: 'Ranks channels by lowest response latency',
+  },
+  {
+    value: 'best channel by success',
+    labelKey: 'Most reliable channel',
+    hintKey: 'Ranks channels by lowest error rate',
+  },
+  {
+    value: 'best channel by cost',
+    labelKey: 'Cheapest channel',
+    hintKey: 'Ranks channels by lowest cost',
+  },
 ] as const
 
 export function MemoryMentalModelsTable() {
@@ -83,13 +93,10 @@ export function MemoryMentalModelsTable() {
   const [expandedKey, setExpandedKey] = useState<string | null>(null)
 
   // Form state
-  const [sourceQuery, setSourceQuery] = useState('')
+  const [sourceQuery, setSourceQuery] = useState<string>(SOURCE_QUERIES[0].value)
   const [scopeModel, setScopeModel] = useState('')
-  // Optional filter; it only reorders/limits suggestions, never blocks custom input
+  // Optional filter; it only narrows suggestions, never blocks custom input
   const [providerFilter, setProviderFilter] = useState<string>('')
-  const [content, setContent] = useState('')
-  const [payload, setPayload] = useState('[]')
-  const [tags, setTags] = useState('')
   const [autoRefresh, setAutoRefresh] = useState(true)
 
   const modelOptions = useMemo<ComboboxInputOption[]>(() => {
@@ -130,9 +137,9 @@ export function MemoryMentalModelsTable() {
       {
         source_query: sourceQuery,
         scope_model: scopeModel,
-        content,
-        payload,
-        tags,
+        content: '',
+        payload: '[]',
+        tags: '',
         auto_refresh: autoRefresh,
       },
       {
@@ -146,12 +153,9 @@ export function MemoryMentalModelsTable() {
   }
 
   function resetForm() {
-    setSourceQuery('')
+    setSourceQuery(SOURCE_QUERIES[0].value)
     setScopeModel('')
     setProviderFilter('')
-    setContent('')
-    setPayload('[]')
-    setTags('')
     setAutoRefresh(true)
   }
 
@@ -200,49 +204,52 @@ export function MemoryMentalModelsTable() {
               {t('Add')}
             </Button>
           </DialogTrigger>
-          <DialogContent className='sm:max-w-[560px]'>
+          <DialogContent className='sm:max-w-[520px]'>
             <DialogHeader>
               <DialogTitle>{t('Create / Update Mental Model')}</DialogTitle>
               <DialogDescription>
                 {t(
-                  'Mental models are cached answers to routing queries. The consolidation job auto-refreshes them when auto-refresh is enabled.'
+                  'Pick what to optimize for and which model it applies to. The gateway remembers the best channel for it and selects it automatically.'
                 )}
               </DialogDescription>
             </DialogHeader>
             <div className='grid gap-4 py-4'>
               <div className='grid gap-2'>
-                <Label htmlFor='mm-sq'>{t('Source query')}</Label>
-                <Input
-                  id='mm-sq'
-                  placeholder='best channel by latency'
-                  value={sourceQuery}
-                  onChange={(e) => setSourceQuery(e.target.value)}
-                />
-                <p className='text-muted-foreground flex items-start gap-1 text-xs'>
-                  <Info className='mt-0.5 size-3 shrink-0' aria-hidden='true' />
-                  {t(
-                    'The question this model answers. Queries mentioning latency/fast, success/reliability or cost/cheap produce ranked answers; any other text produces a plain summary.'
-                  )}
-                </p>
-                <div className='flex flex-wrap gap-1.5'>
-                  {SOURCE_QUERY_PRESETS.map((preset) => (
-                    <Button
-                      key={preset}
+                <Label>{t('What to optimize for')}</Label>
+                <div className='grid gap-2'>
+                  {SOURCE_QUERIES.map((sq) => (
+                    <button
+                      key={sq.value}
                       type='button'
-                      variant={sourceQuery === preset ? 'secondary' : 'outline'}
-                      size='sm'
-                      className='h-6 px-2 text-xs'
-                      onClick={() => setSourceQuery(preset)}
+                      onClick={() => setSourceQuery(sq.value)}
+                      className={
+                        sourceQuery === sq.value
+                          ? 'border-primary bg-primary/5 flex items-start gap-3 rounded-lg border p-3 text-left'
+                          : 'hover:border-muted-foreground/40 flex items-start gap-3 rounded-lg border p-3 text-left transition-colors'
+                      }
                     >
-                      {preset}
-                    </Button>
+                      <span
+                        aria-hidden='true'
+                        className={
+                          sourceQuery === sq.value
+                            ? 'border-primary mt-0.5 size-4 shrink-0 rounded-full border-4'
+                            : 'border-muted-foreground/40 mt-0.5 size-4 shrink-0 rounded-full border-2'
+                        }
+                      />
+                      <span className='grid gap-0.5'>
+                        <span className='text-sm font-medium'>{t(sq.labelKey)}</span>
+                        <span className='text-muted-foreground text-xs'>
+                          {t(sq.hintKey)}
+                        </span>
+                      </span>
+                    </button>
                   ))}
                 </div>
               </div>
 
               {/* Model scope: free input with suggestions — never blocks custom values */}
               <div className='grid gap-2'>
-                <Label htmlFor='mm-scope'>{t('Model (Scope)')}</Label>
+                <Label htmlFor='mm-scope'>{t('Applies to model')}</Label>
                 <ComboboxInput
                   id='mm-scope'
                   options={modelOptions}
@@ -254,73 +261,50 @@ export function MemoryMentalModelsTable() {
                 />
                 <p className='text-muted-foreground text-xs'>
                   {t(
-                    'Pick a suggestion or type any model name / alias. Use * for all models.'
+                    'Type any model name or alias, or pick * to apply to all models.'
                   )}
                 </p>
               </div>
 
               {/* Optional provider filter for narrowing suggestions */}
-              <div className='grid gap-2'>
-                <Label htmlFor='mm-provider'>{t('Filter suggestions by provider (optional)')}</Label>
-                <Select value={providerFilter} onValueChange={(v) => setProviderFilter(v === 'all' ? '' : v)}>
-                  <SelectTrigger id='mm-provider'>
-                    <SelectValue placeholder={t('All providers')} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value='all'>{t('All providers')}</SelectItem>
-                    {providerOptions.map((p) => (
-                      <SelectItem key={p.value} value={p.value}>
-                        {p.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {providerFilter && (
-                  <p className='text-muted-foreground text-xs'>
-                    {t('Showing suggestions from the selected provider; other models can still be typed manually.')}
-                  </p>
-                )}
-              </div>
+              {providerOptions.length > 0 && (
+                <div className='grid gap-2'>
+                  <Label htmlFor='mm-provider'>
+                    {t('Narrow suggestions by provider')}
+                  </Label>
+                  <Select
+                    value={providerFilter || 'all'}
+                    onValueChange={(v) => setProviderFilter(v === 'all' ? '' : v)}
+                  >
+                    <SelectTrigger id='mm-provider'>
+                      <SelectValue placeholder={t('All providers')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value='all'>{t('All providers')}</SelectItem>
+                      {providerOptions.map((p) => (
+                        <SelectItem key={p.value} value={p.value}>
+                          {p.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
-              <div className='grid gap-2'>
-                <Label htmlFor='mm-content'>{t('Content')}</Label>
-                <Textarea
-                  id='mm-content'
-                  rows={3}
-                  value={content}
-                  onChange={(e) => setContent(e.target.value)}
+              <div className='flex items-center gap-2'>
+                <Switch
+                  id='mm-autorefresh'
+                  checked={autoRefresh}
+                  onCheckedChange={setAutoRefresh}
                 />
-              </div>
-              <div className='grid gap-2'>
-                <Label htmlFor='mm-payload'>{t('Payload (JSON)')}</Label>
-                <Textarea
-                  id='mm-payload'
-                  rows={3}
-                  className='font-mono text-xs'
-                  value={payload}
-                  onChange={(e) => setPayload(e.target.value)}
-                />
-              </div>
-              <div className='flex items-center gap-4'>
-                <div className='grid flex-1 gap-2'>
-                  <Label htmlFor='mm-tags'>{t('Tags')}</Label>
-                  <Input
-                    id='mm-tags'
-                    value={tags}
-                    onChange={(e) => setTags(e.target.value)}
-                  />
-                </div>
-                <div className='flex items-center gap-2'>
-                  <Switch
-                    checked={autoRefresh}
-                    onCheckedChange={setAutoRefresh}
-                  />
-                  <Label>{t('Auto refresh')}</Label>
-                </div>
+                <Label htmlFor='mm-autorefresh'>{t('Keep this answer up to date automatically')}</Label>
               </div>
             </div>
             <DialogFooter>
-              <Button onClick={handleSave} disabled={upsert.isPending || !sourceQuery || !scopeModel}>
+              <Button
+                onClick={handleSave}
+                disabled={upsert.isPending || !sourceQuery || !scopeModel}
+              >
                 {t('Save')}
               </Button>
             </DialogFooter>
@@ -332,7 +316,7 @@ export function MemoryMentalModelsTable() {
           <EmptyState
             title={t('No mental models')}
             description={t(
-              'Create a mental model manually or let the consolidation job generate them automatically.'
+              'Nothing here yet. Add one to let the gateway remember the best channel for a model, or wait for it to be generated from traffic automatically.'
             )}
           />
         ) : (
@@ -341,13 +325,10 @@ export function MemoryMentalModelsTable() {
               <TableRow className='bg-muted/40 hover:bg-muted/40'>
                 <TableHead className='h-9 w-8 px-4 text-xs' />
                 <TableHead className='h-9 px-4 text-xs'>
-                  {t('Source query')}
+                  {t('Optimize for')}
                 </TableHead>
-                <TableHead className='h-9 text-xs'>{t('Scope')}</TableHead>
-                <TableHead className='h-9 text-xs'>{t('Tags')}</TableHead>
-                <TableHead className='h-9 text-xs'>
-                  {t('Auto refresh')}
-                </TableHead>
+                <TableHead className='h-9 text-xs'>{t('Applies to model')}</TableHead>
+                <TableHead className='h-9 text-xs'>{t('Auto refresh')}</TableHead>
                 <TableHead className='h-9 text-xs'>{t('Refreshed')}</TableHead>
                 <TableHead className='h-9 w-[60px] px-4 text-xs'>
                   {t('')}
@@ -400,16 +381,13 @@ function MentalModelRow({
             <ChevronRight className='size-4' />
           )}
         </TableCell>
-        <TableCell className='px-4 py-2.5 font-mono text-xs'>
-          {m.source_query}
+        <TableCell className='px-4 py-2.5 text-xs'>
+          {sourceQueryLabel(m.source_query, t)}
         </TableCell>
         <TableCell className='py-2.5'>
           <Badge variant='outline' className='font-mono text-xs'>
-            {m.scope_model}
+            {m.scope_model === '*' ? t('All models') : m.scope_model}
           </Badge>
-        </TableCell>
-        <TableCell className='text-muted-foreground py-2.5 text-xs'>
-          {m.tags || '-'}
         </TableCell>
         <TableCell className='py-2.5'>
           {m.auto_refresh ? (
@@ -446,13 +424,21 @@ function MentalModelRow({
       </TableRow>
       {expanded && (
         <TableRow className='bg-muted/20'>
-          <TableCell colSpan={7} className='px-4 py-3'>
+          <TableCell colSpan={6} className='px-4 py-3'>
             <MentalModelDetail m={m} />
           </TableCell>
         </TableRow>
       )}
     </>
   )
+}
+
+function sourceQueryLabel(
+  sourceQuery: string,
+  t: (key: string) => string
+): string {
+  const preset = SOURCE_QUERIES.find((sq) => sq.value === sourceQuery)
+  return preset ? t(preset.labelKey) : sourceQuery
 }
 
 function MentalModelDetail({ m }: { m: ProviderMentalModel }) {
@@ -470,7 +456,7 @@ function MentalModelDetail({ m }: { m: ProviderMentalModel }) {
       {m.content ? (
         <div>
           <h4 className='text-muted-foreground mb-1 text-xs font-semibold tracking-wide uppercase'>
-            {t('Content')}
+            {t('Result')}
           </h4>
           <pre className='bg-muted rounded-lg p-3 font-mono text-xs leading-relaxed break-words whitespace-pre-wrap'>
             {m.content}
@@ -478,14 +464,16 @@ function MentalModelDetail({ m }: { m: ProviderMentalModel }) {
         </div>
       ) : (
         <p className='text-muted-foreground text-sm'>
-          {t('No content yet. Will be populated by the consolidation job.')}
+          {t(
+            'Not computed yet. The gateway fills this in after collecting enough traffic for the selected model.'
+          )}
         </p>
       )}
 
       {m.payload && m.payload !== '[]' && (
         <div>
           <h4 className='text-muted-foreground mb-1 text-xs font-semibold tracking-wide uppercase'>
-            {t('Payload (rankings)')}
+            {t('Rankings')}
           </h4>
           <pre className='bg-muted overflow-x-auto rounded-lg p-3 text-xs'>
             {typeof payload === 'object'
@@ -497,13 +485,10 @@ function MentalModelDetail({ m }: { m: ProviderMentalModel }) {
 
       <div className='flex flex-wrap gap-4 text-xs'>
         <span className='text-muted-foreground'>
-          {t('Tags')}: {m.tags || '—'}
-        </span>
-        <span className='text-muted-foreground'>
           {t('Auto-refresh')}: {m.auto_refresh ? t('Yes') : t('No')}
         </span>
         <span className='text-muted-foreground'>
-          {t('Refreshed')}: {new Date(m.refreshed_at * 1000).toLocaleString()}
+          {t('Last updated')}: {new Date(m.refreshed_at * 1000).toLocaleString()}
         </span>
         <span className='text-muted-foreground'>
           {t('Created')}: {new Date(m.created_at * 1000).toLocaleString()}
