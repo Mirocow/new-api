@@ -1,11 +1,10 @@
-import { ChevronDown, ChevronRight, Plus, Trash2, Info, Sparkles } from 'lucide-react'
 /*
 Copyright (C) 2023-2026 QuantumNous
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as
 published by the Free Software Foundation, either version 3 of the
-License, or (at your Option) any later version.
+License, or (at your option) any later version.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -17,8 +16,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useState, useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { ChevronDown, ChevronRight, Info, Plus, Trash2 } from 'lucide-react'
 
 import { StaticDataTable } from '@/components/data-table'
 import { EmptyState } from '@/components/empty-state'
@@ -36,6 +36,13 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import {
   TableBody,
@@ -45,30 +52,31 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Textarea } from '@/components/ui/textarea'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectSeparator,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { ComboboxInput, type ComboboxInputOption } from '@/components/ui/combobox-input'
 import { toIntlLocale } from '@/i18n/languages'
 import { formatTimestampRelative } from '@/lib/format'
 
 import {
   useChannelsForMentalModel,
   useDeleteProviderMentalModel,
-  usePreferredModelForChannelType,
   useProviderMentalModels,
   useUpsertProviderMentalModel,
 } from '../hooks'
-import type { ChannelTypeOption, ModelOption } from '../api'
+import type { ProviderMentalModel } from '../api'
+
+// Source query intents recognized by the backend consolidation job
+// (see classifyQuery in service/providermemory): queries containing these
+// keywords produce ranked answers; anything else produces a plain summary.
+const SOURCE_QUERY_PRESETS = [
+  'best channel by latency',
+  'best channel by success',
+  'best channel by cost',
+] as const
 
 export function MemoryMentalModelsTable() {
-  const { t, i18n } = useTranslation()
+  const { t } = useTranslation()
   const { data, isLoading, isError } = useProviderMentalModels()
-  const { data: channelsData, isLoading: channelsLoading } = useChannelsForMentalModel()
+  const { data: channelsData } = useChannelsForMentalModel()
   const upsert = useUpsertProviderMentalModel()
   const del = useDeleteProviderMentalModel()
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -77,22 +85,43 @@ export function MemoryMentalModelsTable() {
   // Form state
   const [sourceQuery, setSourceQuery] = useState('')
   const [scopeModel, setScopeModel] = useState('')
-  const [selectedChannelType, setSelectedChannelType] = useState<number | null>(null)
+  // Optional filter; it only reorders/limits suggestions, never blocks custom input
+  const [providerFilter, setProviderFilter] = useState<string>('')
   const [content, setContent] = useState('')
   const [payload, setPayload] = useState('[]')
   const [tags, setTags] = useState('')
   const [autoRefresh, setAutoRefresh] = useState(true)
 
-  // Fetch preferred model when channel type changes
-  const { data: preferredModel, isLoading: preferredModelLoading } = usePreferredModelForChannelType(selectedChannelType)
+  const modelOptions = useMemo<ComboboxInputOption[]>(() => {
+    const gatewayModels = channelsData?.gatewayModels ?? []
+    const channelModels = channelsData?.models ?? []
+    const provider = providerFilter
+      ? channelModels.filter((cm) => cm.channelType.toString() === providerFilter)
+      : channelModels
+    const seen = new Set<string>()
+    const options: ComboboxInputOption[] = [
+      { value: '*', label: t('Global (all models)'), description: t('Applies to every model') },
+    ]
+    for (const cm of provider) {
+      if (seen.has(cm.value)) continue
+      seen.add(cm.value)
+      options.push({ value: cm.value, label: cm.value, description: cm.channelName })
+    }
+    // When no provider filter is active, also suggest gateway-only models (aliases)
+    if (!providerFilter) {
+      for (const m of gatewayModels) {
+        if (seen.has(m)) continue
+        seen.add(m)
+        options.push({ value: m, label: m, description: t('Alias / gateway model') })
+      }
+    }
+    return options
+  }, [channelsData, providerFilter, t])
 
-  // Memoize channel types and filtered models
-  const channelTypes = useMemo(() => channelsData?.channelTypes ?? [], [channelsData?.channelTypes])
-  const models = useMemo(() => channelsData?.models ?? [], [channelsData?.models])
-  const filteredModels = useMemo(() => {
-    if (!selectedChannelType) return models
-    return models.filter(m => m.channelType === selectedChannelType)
-  }, [models, selectedChannelType])
+  const providerOptions = useMemo(() => {
+    const types = channelsData?.channelTypes ?? []
+    return types.map((ct) => ({ value: ct.value.toString(), label: ct.label }))
+  }, [channelsData])
 
   const rows = data?.data ?? []
 
@@ -119,7 +148,7 @@ export function MemoryMentalModelsTable() {
   function resetForm() {
     setSourceQuery('')
     setScopeModel('')
-    setSelectedChannelType(null)
+    setProviderFilter('')
     setContent('')
     setPayload('[]')
     setTags('')
@@ -189,88 +218,66 @@ export function MemoryMentalModelsTable() {
                   value={sourceQuery}
                   onChange={(e) => setSourceQuery(e.target.value)}
                 />
+                <p className='text-muted-foreground flex items-start gap-1 text-xs'>
+                  <Info className='mt-0.5 size-3 shrink-0' aria-hidden='true' />
+                  {t(
+                    'The question this model answers. Queries mentioning latency/fast, success/reliability or cost/cheap produce ranked answers; any other text produces a plain summary.'
+                  )}
+                </p>
+                <div className='flex flex-wrap gap-1.5'>
+                  {SOURCE_QUERY_PRESETS.map((preset) => (
+                    <Button
+                      key={preset}
+                      type='button'
+                      variant={sourceQuery === preset ? 'secondary' : 'outline'}
+                      size='sm'
+                      className='h-6 px-2 text-xs'
+                      onClick={() => setSourceQuery(preset)}
+                    >
+                      {preset}
+                    </Button>
+                  ))}
+                </div>
               </div>
 
-              {/* Channel Type (Provider) Selector */}
+              {/* Model scope: free input with suggestions — never blocks custom values */}
               <div className='grid gap-2'>
-                <Label htmlFor='mm-channel-type'>{t('Provider (Channel Type)')}</Label>
-                <Select value={selectedChannelType?.toString() ?? ''} onValueChange={(v) => setSelectedChannelType(v ? parseInt(v, 10) : null)}>
-                  <SelectTrigger id='mm-channel-type'>
-                    <SelectValue placeholder={t('Select a provider')} />
+                <Label htmlFor='mm-scope'>{t('Model (Scope)')}</Label>
+                <ComboboxInput
+                  id='mm-scope'
+                  options={modelOptions}
+                  value={scopeModel}
+                  onValueChange={setScopeModel}
+                  placeholder={t('Any model name, alias, or *')}
+                  emptyText={t('No matching models')}
+                  allowCustomValue
+                />
+                <p className='text-muted-foreground text-xs'>
+                  {t(
+                    'Pick a suggestion or type any model name / alias. Use * for all models.'
+                  )}
+                </p>
+              </div>
+
+              {/* Optional provider filter for narrowing suggestions */}
+              <div className='grid gap-2'>
+                <Label htmlFor='mm-provider'>{t('Filter suggestions by provider (optional)')}</Label>
+                <Select value={providerFilter} onValueChange={(v) => setProviderFilter(v === 'all' ? '' : v)}>
+                  <SelectTrigger id='mm-provider'>
+                    <SelectValue placeholder={t('All providers')} />
                   </SelectTrigger>
                   <SelectContent>
-                    {channelTypes.map((ct) => (
-                      <SelectItem key={ct.value} value={ct.value.toString()}>
-                        {ct.label}
+                    <SelectItem value='all'>{t('All providers')}</SelectItem>
+                    {providerOptions.map((p) => (
+                      <SelectItem key={p.value} value={p.value}>
+                        {p.label}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
-
-              {/* Model Selector (filtered by channel type) */}
-              <div className='grid gap-2'>
-                <Label htmlFor='mm-scope'>{t('Model (Scope)')}</Label>
-                <div className='relative'>
-                  <Select value={scopeModel} onValueChange={setScopeModel}>
-                    <SelectTrigger id='mm-scope'>
-                      <SelectValue placeholder={selectedChannelType ? t('Select a model') : t('Select a provider first')} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {selectedChannelType ? (
-                        <>
-                          <SelectItem value='*'>{t('Global (all models)')}</SelectItem>
-                          <SelectSeparator />
-                          {filteredModels.map((m) => (
-                            <SelectItem key={`${m.channelType}:${m.value}`} value={m.value}>
-                              {m.label} <span className='text-muted-foreground ml-2 text-xs'>({m.channelName})</span>
-                            </SelectItem>
-                          ))}
-                          {filteredModels.length === 0 && (
-                            <SelectItem disabled value=''>
-                              {t('No models found for this provider')}
-                            </SelectItem>
-                          )}
-                        </>
-                      ) : (
-                        <SelectItem disabled value=''>
-                          {t('Select a provider first')}
-                        </SelectItem>
-                      )}
-                    </SelectContent>
-                  </Select>
-                  {/* Preferred model hint */}
-                  {selectedChannelType && preferredModel && !preferredModelLoading && (
-                    <div className='absolute right-2 top-full mt-1 z-10'>
-                      <Button
-                        variant='ghost'
-                        size='icon'
-                        className='h-6 w-6 p-0 text-muted-foreground hover:text-primary'
-                        onClick={() => setScopeModel(preferredModel)}
-                        title={t('Use preferred model: {{model}}', { model: preferredModel })}
-                      >
-                        <Sparkles className='size-3.5' aria-hidden='true' />
-                      </Button>
-                    </div>
-                  )}
-                </div>
-                {selectedChannelType && preferredModel && !preferredModelLoading && (
-                  <p className='text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1'>
-                    <Info className='size-3' aria-hidden='true' />
-                    {t('Preferred model for this provider: {{model}}', { model: preferredModel })}
-                    <Button
-                      variant='ghost'
-                      size='icon'
-                      className='h-5 w-5 p-0 text-xs'
-                      onClick={() => setScopeModel(preferredModel)}
-                    >
-                      {t('Use')}
-                    </Button>
-                  </p>
-                )}
-                {selectedChannelType && !preferredModel && !preferredModelLoading && filteredModels.length > 0 && (
-                  <p className='text-xs text-amber-600 dark:text-amber-400'>
-                    {t('No preferred model detected. Select one from the list.')}
+                {providerFilter && (
+                  <p className='text-muted-foreground text-xs'>
+                    {t('Showing suggestions from the selected provider; other models can still be typed manually.')}
                   </p>
                 )}
               </div>
@@ -332,7 +339,7 @@ export function MemoryMentalModelsTable() {
           <StaticDataTable tableClassName='min-w-[760px]'>
             <TableHeader>
               <TableRow className='bg-muted/40 hover:bg-muted/40'>
-                <TableHead className='h-9 w-8 px-4 text-xs'></TableHead>
+                <TableHead className='h-9 w-8 px-4 text-xs' />
                 <TableHead className='h-9 px-4 text-xs'>
                   {t('Source query')}
                 </TableHead>
@@ -349,79 +356,19 @@ export function MemoryMentalModelsTable() {
             </TableHeader>
             <TableBody>
               {rows.map((m) => (
-                <>
-                  <TableRow
-                    key={m.id}
-                    className='hover:bg-muted/30 cursor-pointer'
-                    onClick={() =>
-                      setExpandedKey(
-                        expandedKey === `${m.source_query}::${m.scope_model}`
-                          ? null
-                          : `${m.source_query}::${m.scope_model}`
-                      )
-                    }
-                  >
-                    <TableCell className='px-4 py-2.5'>
-                      {expandedKey === `${m.source_query}::${m.scope_model}` ? (
-                        <ChevronDown className='size-4' />
-                      ) : (
-                        <ChevronRight className='size-4' />
-                      )}
-                    </TableCell>
-                    <TableCell className='px-4 py-2.5 font-mono text-xs'>
-                      {m.source_query}
-                    </TableCell>
-                    <TableCell className='py-2.5'>
-                      <Badge variant='outline' className='font-mono text-xs'>
-                        {m.scope_model}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className='text-muted-foreground py-2.5 text-xs'>
-                      {m.tags || '-'}
-                    </TableCell>
-                    <TableCell className='py-2.5'>
-                      {m.auto_refresh ? (
-                        <Badge variant='secondary' className='gap-1'>
-                          <span className='size-1.5 rounded-full bg-emerald-500' />
-                          {t('On')}
-                        </Badge>
-                      ) : (
-                        <span className='text-muted-foreground text-xs'>
-                          {t('Off')}
-                        </span>
-                      )}
-                    </TableCell>
-                    <TableCell
-                      className='text-muted-foreground py-2.5 text-xs whitespace-nowrap'
-                      title={new Date(m.refreshed_at * 1000).toISOString()}
-                    >
-                      {formatTimestampRelative(
-                        m.refreshed_at,
-                        'seconds',
-                        toIntlLocale(i18n.language)
-                      )}
-                    </TableCell>
-                    <TableCell className='px-4 py-2.5'>
-                      <Button
-                        size='icon'
-                        variant='ghost'
-                        className='text-muted-foreground hover:text-destructive size-7'
-                        onClick={() =>
-                          handleDelete(m.source_query, m.scope_model)
-                        }
-                      >
-                        <Trash2 className='size-3.5' aria-hidden='true' />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                  {expandedKey === `${m.source_query}::${m.scope_model}` && (
-                    <TableRow key={`detail-${m.id}`} className='bg-muted/20'>
-                      <TableCell colSpan={7} className='px-4 py-3'>
-                        <MentalModelDetail m={m} />
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </>
+                <MentalModelRow
+                  key={m.id}
+                  m={m}
+                  expanded={expandedKey === `${m.source_query}::${m.scope_model}`}
+                  onToggle={() =>
+                    setExpandedKey(
+                      expandedKey === `${m.source_query}::${m.scope_model}`
+                        ? null
+                        : `${m.source_query}::${m.scope_model}`
+                    )
+                  }
+                  onDelete={() => handleDelete(m.source_query, m.scope_model)}
+                />
               ))}
             </TableBody>
           </StaticDataTable>
@@ -431,9 +378,84 @@ export function MemoryMentalModelsTable() {
   )
 }
 
-// --- Mental model detail (expanded row) ---
+function MentalModelRow({
+  m,
+  expanded,
+  onToggle,
+  onDelete,
+}: {
+  m: ProviderMentalModel
+  expanded: boolean
+  onToggle: () => void
+  onDelete: () => void
+}) {
+  const { t, i18n } = useTranslation()
+  return (
+    <>
+      <TableRow className='hover:bg-muted/30 cursor-pointer' onClick={onToggle}>
+        <TableCell className='px-4 py-2.5'>
+          {expanded ? (
+            <ChevronDown className='size-4' />
+          ) : (
+            <ChevronRight className='size-4' />
+          )}
+        </TableCell>
+        <TableCell className='px-4 py-2.5 font-mono text-xs'>
+          {m.source_query}
+        </TableCell>
+        <TableCell className='py-2.5'>
+          <Badge variant='outline' className='font-mono text-xs'>
+            {m.scope_model}
+          </Badge>
+        </TableCell>
+        <TableCell className='text-muted-foreground py-2.5 text-xs'>
+          {m.tags || '-'}
+        </TableCell>
+        <TableCell className='py-2.5'>
+          {m.auto_refresh ? (
+            <Badge variant='secondary' className='gap-1'>
+              <span className='size-1.5 rounded-full bg-emerald-500' />
+              {t('On')}
+            </Badge>
+          ) : (
+            <span className='text-muted-foreground text-xs'>
+              {t('Off')}
+            </span>
+          )}
+        </TableCell>
+        <TableCell
+          className='text-muted-foreground py-2.5 text-xs whitespace-nowrap'
+          title={new Date(m.refreshed_at * 1000).toISOString()}
+        >
+          {formatTimestampRelative(
+            m.refreshed_at,
+            'seconds',
+            toIntlLocale(i18n.language)
+          )}
+        </TableCell>
+        <TableCell className='px-4 py-2.5'>
+          <Button
+            size='icon'
+            variant='ghost'
+            className='text-muted-foreground hover:text-destructive size-7'
+            onClick={onDelete}
+          >
+            <Trash2 className='size-3.5' aria-hidden='true' />
+          </Button>
+        </TableCell>
+      </TableRow>
+      {expanded && (
+        <TableRow className='bg-muted/20'>
+          <TableCell colSpan={7} className='px-4 py-3'>
+            <MentalModelDetail m={m} />
+          </TableCell>
+        </TableRow>
+      )}
+    </>
+  )
+}
 
-function MentalModelDetail({ m }: { m: import('../api').ProviderMentalModel }) {
+function MentalModelDetail({ m }: { m: ProviderMentalModel }) {
   const { t } = useTranslation()
 
   let payload: unknown = m.payload
@@ -445,7 +467,6 @@ function MentalModelDetail({ m }: { m: import('../api').ProviderMentalModel }) {
 
   return (
     <div className='space-y-3'>
-      {/* Content (markdown-like) */}
       {m.content ? (
         <div>
           <h4 className='text-muted-foreground mb-1 text-xs font-semibold tracking-wide uppercase'>
@@ -461,7 +482,6 @@ function MentalModelDetail({ m }: { m: import('../api').ProviderMentalModel }) {
         </p>
       )}
 
-      {/* Payload (structured rankings) */}
       {m.payload && m.payload !== '[]' && (
         <div>
           <h4 className='text-muted-foreground mb-1 text-xs font-semibold tracking-wide uppercase'>
@@ -475,7 +495,6 @@ function MentalModelDetail({ m }: { m: import('../api').ProviderMentalModel }) {
         </div>
       )}
 
-      {/* Metadata */}
       <div className='flex flex-wrap gap-4 text-xs'>
         <span className='text-muted-foreground'>
           {t('Tags')}: {m.tags || '—'}

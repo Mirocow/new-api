@@ -24,7 +24,6 @@ import {
   consolidateProviderFacts,
   deleteProviderMentalModel,
   getChannelsForMentalModel,
-  getPreferredModelForChannelType,
   getProviderMemoryConfig,
   getProviderMemoryStats,
   listProviderMemoryFacts,
@@ -33,8 +32,8 @@ import {
   pruneOldProviderFacts,
   updateProviderMemoryConfig,
   upsertProviderMentalModel,
+  type ProviderMemoryConfig,
 } from './api'
-import type { ChannelTypeOption, ModelOption, ProviderMemoryConfig } from './api'
 
 const STATS_KEY = ['provider-memory', 'stats'] as const
 const CONFIG_KEY = ['provider-memory', 'config'] as const
@@ -165,24 +164,13 @@ export function useDeleteProviderMentalModel() {
 const CHANNELS_MM_KEY = ['provider-memory', 'channels-for-mm'] as const
 
 /**
- * Fetch channel types and models for mental model scope selection
+ * Fetch channel types, channel models, and gateway models (incl. aliases)
+ * for mental model scope selection
  */
 export function useChannelsForMentalModel() {
   return useQuery({
     queryKey: CHANNELS_MM_KEY,
     queryFn: getChannelsForMentalModel,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-  })
-}
-
-/**
- * Fetch preferred model for a channel type
- */
-export function usePreferredModelForChannelType(channelType: number | null) {
-  return useQuery({
-    queryKey: ['provider-memory', 'preferred-model', channelType],
-    queryFn: () => getPreferredModelForChannelType(channelType!),
-    enabled: channelType !== null && channelType !== undefined,
     staleTime: 5 * 60 * 1000, // 5 minutes
   })
 }

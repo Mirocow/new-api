@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { api } from '@/lib/api'
+import type { GetChannelsResponse } from '@/features/channels/types'
 
 export interface ProviderMemoryConfig {
   enabled: boolean
@@ -224,20 +225,21 @@ export interface ModelOption {
   channelName: string
 }
 
-import type { GetChannelsResponse } from '@/features/channels/types'
-
 /**
- * Get all enabled channels with their types and models for mental model scope selection
+ * Get all enabled channels with their types and models for mental model scope selection.
+ * Also returns the gateway model list (which includes aliases) so any model can be picked.
  */
 export async function getChannelsForMentalModel(): Promise<{
   channelTypes: ChannelTypeOption[]
   models: ModelOption[]
+  gatewayModels: string[]
 }> {
   const res = await api.get<GetChannelsResponse>('/api/channel', {
     params: { status: 'enabled', page_size: 1000 }
   })
   
   const channels = res.data.data?.items ?? []
+  const gatewayModels = new Set<string>()
   
   // Build unique channel types
   const typeMap = new Map<number, ChannelTypeOption>()
@@ -256,6 +258,7 @@ export async function getChannelsForMentalModel(): Promise<{
     if (ch.models) {
       const models = ch.models.split(',').map(m => m.trim()).filter(Boolean)
       for (const model of models) {
+        gatewayModels.add(model)
         const key = `${ch.type}:${model}`
         if (!modelMap.has(key)) {
           modelMap.set(key, {
@@ -269,43 +272,21 @@ export async function getChannelsForMentalModel(): Promise<{
     }
   }
   
-  return {
-    channelTypes: Array.from(typeMap.values()).sort((a, b) => a.label.localeCompare(b.label)),
-    models: Array.from(modelMap.values()).sort((a, b) => a.label.localeCompare(b.label)),
-  }
-}
-
-/**
- * Get preferred model for a given channel type (most commonly used model)
- */
-export async function getPreferredModelForChannelType(channelType: number): Promise<string | null> {
-  const res = await api.get<GetChannelsResponse>('/api/channel', {
-    params: { status: 'enabled', type: channelType, page_size: 100 }
-  })
-  
-  const channels = res.data.data?.items ?? []
-  if (channels.length === 0) return null
-  
-  // Count model occurrences
-  const modelCounts = new Map<string, number>()
-  for (const ch of channels) {
-    if (ch.models) {
-      const models = ch.models.split(',').map(m => m.trim()).filter(Boolean)
-      for (const model of models) {
-        modelCounts.set(model, (modelCounts.get(model) || 0) + 1)
+  // Gateway model list (includes aliases users can actually request)
+  try {
+    const userModelsRes = await api.get<{ success: boolean; data?: string[] }>('/api/user/models')
+    if (userModelsRes.data?.success && Array.isArray(userModelsRes.data.data)) {
+      for (const m of userModelsRes.data.data) {
+        if (typeof m === 'string' && m) gatewayModels.add(m)
       }
     }
+  } catch {
+    // Non-fatal: channel models are still available as suggestions
   }
   
-  // Return most common model
-  let maxCount = 0
-  let preferredModel = null
-  for (const [model, count] of modelCounts) {
-    if (count > maxCount) {
-      maxCount = count
-      preferredModel = model
-    }
+  return {
+    channelTypes: [...typeMap.values()].sort((a, b) => a.label.localeCompare(b.label)),
+    models: [...modelMap.values()].sort((a, b) => a.label.localeCompare(b.label)),
+    gatewayModels: [...gatewayModels].sort(),
   }
-  
-  return preferredModel
 }
