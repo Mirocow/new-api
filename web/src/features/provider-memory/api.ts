@@ -17,6 +17,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { api } from '@/lib/api'
+import { getChannelTypeLabel } from '@/features/channels/lib/channel-utils'
+import { extractMappingSourceModels } from '@/features/channels/lib/model-mapping-validation'
 import type { GetChannelsResponse } from '@/features/channels/types'
 
 export interface ProviderMemoryConfig {
@@ -212,81 +214,93 @@ export async function getRoutingHintBySuccess(model: string) {
 // Channel & Model helpers for Mental Model creation
 // ============================================================================
 
-export interface ChannelTypeOption {
+export interface ProviderOption {
+  // Channel type id (the provider family, e.g. 1 = OpenAI)
   value: number
+  // Human-readable provider label (i18n key)
   label: string
-  baseUrl: string
+  // Number of enabled channels of this type
+  channelCount: number
 }
 
 export interface ModelOption {
   value: string
   label: string
+  /** Provider (channel type) this model belongs to */
   channelType: number
-  channelName: string
+  /** True when the name comes from model_mapping (an alias users request) */
+  isAlias: boolean
 }
 
 /**
- * Get all enabled channels with their types and models for mental model scope selection.
- * Also returns the gateway model list (which includes aliases) so any model can be picked.
+ * Build provider + model suggestions for mental model scope selection.
+ *
+ * Providers are the channel types of all ENABLED channels; models are the
+ * union of each channel's `models` list and its `model_mapping` keys (the
+ * aliases users actually request). Models are grouped by provider so the form
+ * can render two dependent autocomplete inputs.
  */
 export async function getChannelsForMentalModel(): Promise<{
-  channelTypes: ChannelTypeOption[]
+  providers: ProviderOption[]
   models: ModelOption[]
-  gatewayModels: string[]
 }> {
   const res = await api.get<GetChannelsResponse>('/api/channel', {
-    params: { status: 'enabled', page_size: 1000 }
+    params: { status: 'enabled', page_size: 1000 },
   })
-  
+
   const channels = res.data.data?.items ?? []
-  const gatewayModels = new Set<string>()
-  
-  // Build unique channel types
-  const typeMap = new Map<number, ChannelTypeOption>()
+  const providerMap = new Map<number, ProviderOption>()
   const modelMap = new Map<string, ModelOption>()
-  
+
   for (const ch of channels) {
-    if (!typeMap.has(ch.type)) {
-      typeMap.set(ch.type, {
+    const existing = providerMap.get(ch.type)
+    if (existing) {
+      existing.channelCount += 1
+    } else {
+      providerMap.set(ch.type, {
         value: ch.type,
-        label: ch.name || `Type ${ch.type}`,
-        baseUrl: ch.base_url || '',
+        label: getChannelTypeLabel(ch.type),
+        channelCount: 1,
       })
     }
-    
-    // Parse models from the channel
-    if (ch.models) {
-      const models = ch.models.split(',').map(m => m.trim()).filter(Boolean)
-      for (const model of models) {
-        gatewayModels.add(model)
-        const key = `${ch.type}:${model}`
-        if (!modelMap.has(key)) {
-          modelMap.set(key, {
-            value: model,
-            label: model,
-            channelType: ch.type,
-            channelName: ch.name,
-          })
-        }
+
+    // Models declared on the channel
+    const declared = (ch.models || '')
+      .split(',')
+      .map((m) => m.trim())
+      .filter(Boolean)
+    for (const model of declared) {
+      const key = `${ch.type}:${model}`
+      if (!modelMap.has(key)) {
+        modelMap.set(key, {
+          value: model,
+          label: model,
+          channelType: ch.type,
+          isAlias: false,
+        })
+      }
+    }
+
+    // Aliases: keys of model_mapping are requestable names remapped upstream
+    for (const alias of extractMappingSourceModels(ch.model_mapping || '')) {
+      const key = `${ch.type}:${alias}`
+      if (!modelMap.has(key)) {
+        modelMap.set(key, {
+          value: alias,
+          label: alias,
+          channelType: ch.type,
+          isAlias: true,
+        })
       }
     }
   }
-  
-  // Gateway model list (includes aliases users can actually request)
-  try {
-    const userModelsRes = await api.get<{ success: boolean; data?: string[] }>('/api/user/models')
-    if (userModelsRes.data?.success && Array.isArray(userModelsRes.data.data)) {
-      for (const m of userModelsRes.data.data) {
-        if (typeof m === 'string' && m) gatewayModels.add(m)
-      }
-    }
-  } catch {
-    // Non-fatal: channel models are still available as suggestions
-  }
-  
+
   return {
-    channelTypes: [...typeMap.values()].sort((a, b) => a.label.localeCompare(b.label)),
-    models: [...modelMap.values()].sort((a, b) => a.label.localeCompare(b.label)),
-    gatewayModels: [...gatewayModels].sort(),
+    providers: [...providerMap.values()].sort((a, b) =>
+      a.label.localeCompare(b.label)
+    ),
+    models: [...modelMap.values()].sort((a, b) =>
+      a.label.localeCompare(b.label)
+    ),
   }
 }

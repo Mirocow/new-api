@@ -35,13 +35,6 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import {
   TableBody,
@@ -95,40 +88,45 @@ export function MemoryMentalModelsTable() {
   // Form state
   const [sourceQuery, setSourceQuery] = useState<string>(SOURCE_QUERIES[0].value)
   const [scopeModel, setScopeModel] = useState('')
-  // Optional filter; it only narrows suggestions, never blocks custom input
-  const [providerFilter, setProviderFilter] = useState<string>('')
+  // Provider (channel type) — narrows the model list. Empty = all providers.
+  const [selectedProvider, setSelectedProvider] = useState<string>('')
   const [autoRefresh, setAutoRefresh] = useState(true)
 
+  const providers = useMemo(() => channelsData?.providers ?? [], [channelsData?.providers])
+  const allModels = useMemo(() => channelsData?.models ?? [], [channelsData?.models])
+
+  // Models of the selected provider (all models + model_mapping aliases)
+  const scopedModels = useMemo(() => {
+    if (!selectedProvider) return allModels
+    return allModels.filter((m) => m.channelType.toString() === selectedProvider)
+  }, [allModels, selectedProvider])
+
+  const providerOptions = useMemo<ComboboxInputOption[]>(() => {
+    return providers.map((p) => ({
+      value: p.value.toString(),
+      label: t(p.label),
+      description: t('{{count}} enabled channels', { count: p.channelCount }),
+    }))
+  }, [providers, t])
+
+  // Model suggestions depend on the selected provider
   const modelOptions = useMemo<ComboboxInputOption[]>(() => {
-    const gatewayModels = channelsData?.gatewayModels ?? []
-    const channelModels = channelsData?.models ?? []
-    const provider = providerFilter
-      ? channelModels.filter((cm) => cm.channelType.toString() === providerFilter)
-      : channelModels
-    const seen = new Set<string>()
     const options: ComboboxInputOption[] = [
-      { value: '*', label: t('Global (all models)'), description: t('Applies to every model') },
+      {
+        value: '*',
+        label: t('All models'),
+        description: t('Applies to every model'),
+      },
     ]
-    for (const cm of provider) {
-      if (seen.has(cm.value)) continue
-      seen.add(cm.value)
-      options.push({ value: cm.value, label: cm.value, description: cm.channelName })
-    }
-    // When no provider filter is active, also suggest gateway-only models (aliases)
-    if (!providerFilter) {
-      for (const m of gatewayModels) {
-        if (seen.has(m)) continue
-        seen.add(m)
-        options.push({ value: m, label: m, description: t('Alias / gateway model') })
-      }
+    for (const m of scopedModels) {
+      options.push({
+        value: m.value,
+        label: m.label,
+        description: m.isAlias ? t('Alias') : undefined,
+      })
     }
     return options
-  }, [channelsData, providerFilter, t])
-
-  const providerOptions = useMemo(() => {
-    const types = channelsData?.channelTypes ?? []
-    return types.map((ct) => ({ value: ct.value.toString(), label: ct.label }))
-  }, [channelsData])
+  }, [scopedModels, t])
 
   const rows = data?.data ?? []
 
@@ -155,7 +153,7 @@ export function MemoryMentalModelsTable() {
   function resetForm() {
     setSourceQuery(SOURCE_QUERIES[0].value)
     setScopeModel('')
-    setProviderFilter('')
+    setSelectedProvider('')
     setAutoRefresh(true)
   }
 
@@ -247,7 +245,24 @@ export function MemoryMentalModelsTable() {
                 </div>
               </div>
 
-              {/* Model scope: free input with suggestions — never blocks custom values */}
+              {/* Provider autocomplete — narrows the model list below */}
+              <div className='grid gap-2'>
+                <Label htmlFor='mm-provider'>{t('Provider')}</Label>
+                <ComboboxInput
+                  id='mm-provider'
+                  options={providerOptions}
+                  value={selectedProvider}
+                  onValueChange={(v) => {
+                    setSelectedProvider(v)
+                    setScopeModel('')
+                  }}
+                  placeholder={t('All providers')}
+                  emptyText={t('No matching providers')}
+                  allowCustomValue
+                />
+              </div>
+
+              {/* Model autocomplete — options depend on the selected provider */}
               <div className='grid gap-2'>
                 <Label htmlFor='mm-scope'>{t('Applies to model')}</Label>
                 <ComboboxInput
@@ -260,36 +275,16 @@ export function MemoryMentalModelsTable() {
                   allowCustomValue
                 />
                 <p className='text-muted-foreground text-xs'>
-                  {t(
-                    'Type any model name or alias, or pick * to apply to all models.'
-                  )}
+                  {selectedProvider
+                    ? t(
+                        '{{count}} models and aliases available for the selected provider.',
+                        { count: scopedModels.length }
+                      )
+                    : t(
+                        'Pick a provider to narrow the list, or search across all models and aliases.'
+                      )}
                 </p>
               </div>
-
-              {/* Optional provider filter for narrowing suggestions */}
-              {providerOptions.length > 0 && (
-                <div className='grid gap-2'>
-                  <Label htmlFor='mm-provider'>
-                    {t('Narrow suggestions by provider')}
-                  </Label>
-                  <Select
-                    value={providerFilter || 'all'}
-                    onValueChange={(v) => setProviderFilter(v === 'all' ? '' : v)}
-                  >
-                    <SelectTrigger id='mm-provider'>
-                      <SelectValue placeholder={t('All providers')} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value='all'>{t('All providers')}</SelectItem>
-                      {providerOptions.map((p) => (
-                        <SelectItem key={p.value} value={p.value}>
-                          {p.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
 
               <div className='flex items-center gap-2'>
                 <Switch
