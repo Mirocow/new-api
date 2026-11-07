@@ -365,7 +365,7 @@ func enrichModels(models []*model.Model) error {
 // GetModelChannels returns channels configured for a specific model with their
 // priority, weight, and health metrics.
 func GetModelChannels(c *gin.Context) {
-	modelName := c.Param("id")
+	modelName := c.Param("model_name")
 	if modelName == "" {
 		common.ApiErrorT(c, "Model name is required")
 		return
@@ -516,7 +516,7 @@ func calculateRecommendedPriority(info ChannelInfo) int {
 }
 // GetModelRequestHistory returns recent request logs for a model showing which channels served it.
 func GetModelRequestHistory(c *gin.Context) {
-	modelName := c.Param("id")
+	modelName := c.Param("model_name")
 	if modelName == "" {
 		common.ApiErrorT(c, "Model name is required")
 		return
@@ -633,7 +633,7 @@ func parseLogOther(other string) (rejectReason, errorMessage string) {
 // GetModelFailoverHistory returns recent failover/switch events for a model.
 // A failover occurs when a request is retried on a different channel (same RequestId, different ChannelId).
 func GetModelFailoverHistory(c *gin.Context) {
-	modelName := c.Param("id")
+	modelName := c.Param("model_name")
 	if modelName == "" {
 		common.ApiErrorT(c, "Model name is required")
 		return
@@ -683,6 +683,314 @@ func GetModelFailoverHistory(c *gin.Context) {
 		}
 
 		// Sort by CreatedAt
+		sort.Slice(groupLogs, func(i, j int) bool {
+			return groupLogs[i].CreatedAt < groupLogs[j].CreatedAt
+		})
+
+		channelsTried := make([]int, 0, len(groupLogs))
+		channelNames := make([]string, 0, len(groupLogs))
+		rejectReasons := make([]string, 0, len(groupLogs))
+		errorMessages := make([]string, 0, len(groupLogs))
+		seenChannels := make(map[int]bool)
+
+		for _, log := range groupLogs {
+			if !seenChannels[log.ChannelId] {
+				channelsTried = append(channelsTried, log.ChannelId)
+				channelNames = append(channelNames, log.ChannelName)
+				seenChannels[log.ChannelId] = true
+			}
+			rejectReason, errorMessage := parseLogOther(log.Other)
+			if rejectReason != "" {
+				rejectReasons = append(rejectReasons, rejectReason)
+			}
+			if errorMessage != "" {
+				errorMessages = append(errorMessages, errorMessage)
+			}
+		}
+
+		finalLog := groupLogs[len(groupLogs)-1]
+		failovers = append(failovers, FailoverEvent{
+			RequestId:        requestId,
+			ModelName:        modelName,
+			TotalAttempts:    len(groupLogs),
+			ChannelsTried:    channelsTried,
+			ChannelNames:     channelNames,
+			FinalChannelId:   finalLog.ChannelId,
+			FinalChannelName: finalLog.ChannelName,
+			Success:          finalLog.Quota > 0 || finalLog.PromptTokens > 0 || finalLog.CompletionTokens > 0,
+			FirstAttemptAt:   groupLogs[0].CreatedAt,
+			LastAttemptAt:    finalLog.CreatedAt,
+			RejectReasons:    rejectReasons,
+			ErrorMessages:    errorMessages,
+			DurationMs:       finalLog.CreatedAt - groupLogs[0].CreatedAt,
+		})
+	}
+
+	// Sort by LastAttemptAt desc (most recent first)
+	sort.Slice(failovers, func(i, j int) bool {
+		return failovers[i].LastAttemptAt > failovers[j].LastAttemptAt
+	})
+
+	// Limit to 10 most recent
+	if len(failovers) > 10 {
+		failovers = failovers[:10]
+	}
+
+	common.ApiSuccess(c, gin.H{
+		"model_name": modelName,
+		"failovers":  failovers,
+		"total":      len(failovers),
+	})
+}
+// HandleModelRoutes handles model routes with catch-all parameter for model names containing slashes.
+// It parses the model_path to determine the model name and the requested action (channels, history, failovers).
+func HandleModelRoutes(c *gin.Context) {
+	modelPath := c.Param("model_path")
+	if modelPath == "" {
+		common.ApiErrorT(c, "Model name is required")
+		return
+	}
+
+	// Parse the path: model_name/action where action is channels, history, or failovers
+	// The path comes in as "model_name/action" or just "model_name"
+	var modelName, action string
+	if idx := strings.Index(modelPath, "/"); idx >= 0 {
+		modelName = modelPath[:idx]
+		action = modelPath[idx+1:]
+	} else {
+		modelName = modelPath
+		action = ""
+	}
+
+	if modelName == "" {
+		common.ApiErrorT(c, "Model name is required")
+		return
+	}
+
+	switch action {
+	case "channels":
+		GetModelChannelsInternal(c, modelName)
+	case "history":
+		GetModelRequestHistoryInternal(c, modelName)
+	case "failovers":
+		GetModelFailoverHistoryInternal(c, modelName)
+	default:
+		common.ApiErrorT(c, "Invalid model route")
+	}
+}
+
+// GetModelChannelsInternal is the internal implementation for getting model channels.
+func GetModelChannelsInternal(c *gin.Context, modelName string) {
+	if modelName == "" {
+		common.ApiErrorT(c, "Model name is required")
+		return
+	}
+
+	// Get all channels that have this model
+	var channels []model.Channel
+	if err := model.DB.Select("id", "name", "type", "group", "status", "priority", "weight", "other_settings").
+		Find(&channels).Error; err != nil {
+		common.ApiError(c, err)
+		return
+	}
+
+	// Get penalty info for all channels
+	penaltyCounts := make(map[int]int)
+	penaltyUntils := make(map[int]int64)
+	penaltyReasons := make(map[int]string)
+	for _, ch := range channels {
+		penaltyCounts[ch.Id] = model.GetPenaltyCount(ch.Id)
+		penaltyUntils[ch.Id] = int64(model.GetPenaltyRemainingSeconds(ch.Id))
+		penaltyReasons[ch.Id] = model.GetPenaltyReason(ch.Id)
+	}
+
+	// Get health metrics from provider memory observations
+	healthMetrics := make(map[int]map[string]float64)
+	observations, _ := model.RecallActiveObservations(model.ProviderRecallFilter{
+		ModelName: modelName,
+		Limit:     1000,
+	})
+	for _, obs := range observations {
+		var metrics map[string]float64
+		if err := common.Unmarshal([]byte(obs.Metrics), &metrics); err == nil {
+			healthMetrics[obs.ChannelId] = metrics
+		}
+	}
+
+	// Filter channels that have this model and build response
+	var result []ChannelInfo
+	for _, ch := range channels {
+		models := ch.GetModels()
+		hasModel := false
+		for _, m := range models {
+			if m == modelName {
+				hasModel = true
+				break
+			}
+		}
+		if !hasModel {
+			continue
+		}
+
+		info := ChannelInfo{
+			ID:             ch.Id,
+			Name:           ch.Name,
+			Type:           ch.Type,
+			Group:          ch.Group,
+			Status:         ch.Status,
+			Priority:       ch.GetPriority(),
+			Weight:         ch.GetWeight(),
+			IsEnabled:      ch.Status == common.ChannelStatusEnabled,
+			PenaltyCount:   penaltyCounts[ch.Id],
+			PenaltyUntil:   penaltyUntils[ch.Id],
+			PenaltyReason:  penaltyReasons[ch.Id],
+		}
+
+		// Add health metrics if available
+		if metrics, ok := healthMetrics[ch.Id]; ok {
+			info.AvgLatencyMs = metrics["latency_ms"]
+			info.ErrorRate = metrics["error_rate"]
+			info.SuccessRate = metrics["success_rate"]
+			info.CostPer1k = metrics["cost_per_1k"]
+			info.SampleSize = int(metrics["sample_size"])
+			if info.SuccessRate > 0 {
+				info.RecommendedPriority = int(info.SuccessRate * 100)
+			}
+		}
+
+		result = append(result, info)
+	}
+
+	common.ApiSuccess(c, gin.H{
+		"model_name": modelName,
+		"channels":   result,
+		"total":      len(result),
+	})
+}
+
+// GetModelRequestHistoryInternal is the internal implementation for getting model request history.
+func GetModelRequestHistoryInternal(c *gin.Context, modelName string) {
+	if modelName == "" {
+		common.ApiErrorT(c, "Model name is required")
+		return
+	}
+
+	limit := 100
+	if l := c.Query("limit"); l != "" {
+		if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 {
+			limit = parsed
+		}
+	}
+
+	logs, err := model.GetModelRequestHistory(modelName, limit)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+
+	type LogEntry struct {
+		Id                int    `json:"id"`
+		CreatedAt         int64  `json:"created_at"`
+		ModelName         string `json:"model_name"`
+		ChannelId         int    `json:"channel_id"`
+		ChannelName       string `json:"channel_name"`
+		Quota             int    `json:"quota"`
+		PromptTokens      int    `json:"prompt_tokens"`
+		CompletionTokens  int    `json:"completion_tokens"`
+		UseTime           int    `json:"use_time"`
+		IsStream          bool   `json:"is_stream"`
+		Group             string `json:"group"`
+		Ip                string `json:"ip"`
+		RequestId         string `json:"request_id"`
+		UpstreamRequestId string `json:"upstream_request_id"`
+		Other             string `json:"other"`
+		// Parsed from Other
+		RejectReason string `json:"reject_reason,omitempty"`
+		ErrorMessage string `json:"error_message,omitempty"`
+	}
+
+	var result []LogEntry
+	for _, log := range logs {
+		rejectReason, errorMessage := parseLogOther(log.Other)
+		result = append(result, LogEntry{
+			Id:                log.Id,
+			CreatedAt:         log.CreatedAt,
+			ModelName:         log.ModelName,
+			ChannelId:         log.ChannelId,
+			ChannelName:       log.ChannelName,
+			Quota:             log.Quota,
+			PromptTokens:      log.PromptTokens,
+			CompletionTokens:  log.CompletionTokens,
+			UseTime:           log.UseTime,
+			IsStream:          log.IsStream,
+			Group:             log.Group,
+			Ip:                log.Ip,
+			RequestId:         log.RequestId,
+			UpstreamRequestId: log.UpstreamRequestId,
+			Other:             log.Other,
+			RejectReason:      rejectReason,
+			ErrorMessage:      errorMessage,
+		})
+	}
+
+	common.ApiSuccess(c, gin.H{
+		"model_name": modelName,
+		"logs":       result,
+		"total":      len(result),
+	})
+}
+
+// GetModelFailoverHistoryInternal is the internal implementation for getting model failover history.
+func GetModelFailoverHistoryInternal(c *gin.Context, modelName string) {
+	if modelName == "" {
+		common.ApiErrorT(c, "Model name is required")
+		return
+	}
+
+	limit := 200 // Fetch more logs to find failover chains
+	if l := c.Query("limit"); l != "" {
+		if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 {
+			limit = parsed
+		}
+	}
+
+	logs, err := model.GetModelRequestHistory(modelName, limit)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+
+	// Group logs by RequestId to find failover chains
+	requestGroups := make(map[string][]*model.Log)
+	for _, log := range logs {
+		if log.RequestId != "" {
+			requestGroups[log.RequestId] = append(requestGroups[log.RequestId], log)
+		}
+	}
+
+	type FailoverEvent struct {
+		RequestId        string   `json:"request_id"`
+		ModelName        string   `json:"model_name"`
+		TotalAttempts    int      `json:"total_attempts"`
+		ChannelsTried    []int    `json:"channels_tried"`
+		ChannelNames     []string `json:"channel_names"`
+		FinalChannelId   int      `json:"final_channel_id"`
+		FinalChannelName string   `json:"final_channel_name"`
+		Success          bool     `json:"success"`
+		FirstAttemptAt   int64    `json:"first_attempt_at"`
+		LastAttemptAt    int64    `json:"last_attempt_at"`
+		RejectReasons    []string `json:"reject_reasons"`
+		ErrorMessages    []string `json:"error_messages"`
+		DurationMs       int64    `json:"duration_ms"`
+	}
+
+	var failovers []FailoverEvent
+	for requestId, groupLogs := range requestGroups {
+		if len(groupLogs) < 2 {
+			continue // Not a failover, only single attempt
+		}
+
+		// Sort by CreatedAt asc to get chronological order
 		sort.Slice(groupLogs, func(i, j int) bool {
 			return groupLogs[i].CreatedAt < groupLogs[j].CreatedAt
 		})

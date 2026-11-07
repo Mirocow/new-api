@@ -667,7 +667,7 @@ export interface GetModelChannelsResponse {
 }
 
 export async function getModelChannels(modelName: string): Promise<GetModelChannelsResponse> {
-  const res = await api.get(`/api/models/${encodeURIComponent(modelName)}/channels`)
+  const res = await api.get(`/api/models/by-name/${encodeURIComponent(modelName)}/channels`)
   return res.data
 }
 /**
@@ -704,7 +704,7 @@ export interface GetModelRequestHistoryResponse {
 }
 
 export async function getModelRequestHistory(modelName: string, limit = 100): Promise<GetModelRequestHistoryResponse> {
-  const res = await api.get(`/api/models/${encodeURIComponent(modelName)}/history`, { params: { limit } })
+  const res = await api.get(`/api/models/by-name/${encodeURIComponent(modelName)}/history`, { params: { limit } })
   return res.data
 }
 
@@ -735,7 +735,7 @@ export interface GetModelFailoverHistoryResponse {
 }
 
 export async function getModelFailoverHistory(modelName: string, limit = 200): Promise<GetModelFailoverHistoryResponse> {
-  const res = await api.get(`/api/models/${encodeURIComponent(modelName)}/failovers`, { params: { limit } })
+  const res = await api.get(`/api/models/by-name/${encodeURIComponent(modelName)}/failovers`, { params: { limit } })
   return res.data
 }
 export interface ModelDeleteResult {

@@ -411,10 +411,9 @@ func SetApiRouter(router *gin.Engine) {
 			modelsRoute.GET("/missing", controller.GetMissingModels)
 			modelsRoute.GET("/", controller.GetAllModelsMeta)
 			modelsRoute.GET("/search", controller.SearchModelsMeta)
-			// Specific routes with additional path segments must come before /:id
-			modelsRoute.GET("/:id/channels", controller.GetModelChannels)
-			modelsRoute.GET("/:id/history", controller.GetModelRequestHistory)
-			modelsRoute.GET("/:id/failovers", controller.GetModelFailoverHistory)
+			// Use /by-name/*model_path prefix to support model names with slashes (e.g., "am/nemotron-3-ultra")
+			// without conflicting with existing routes like /sync_upstream, /search, /:id
+			modelsRoute.GET("/by-name/*model_path", controller.HandleModelRoutes)
 			modelsRoute.GET("/:id", controller.GetModelMeta)
 			modelsRoute.POST("/", controller.CreateModelMeta)
 			modelsRoute.PUT("/", controller.UpdateModelMeta)
