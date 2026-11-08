@@ -32,6 +32,37 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+// extractTextFromMessage extracts plain text from a dto.Message content.
+func extractTextFromMessage(msg dto.Message) string {
+	if msg.IsStringContent() {
+		return msg.StringContent()
+	}
+	var sb strings.Builder
+	for _, c := range msg.ParseContent() {
+		if c.Type == dto.ContentTypeText && c.Text != "" {
+			sb.WriteString(c.Text)
+			sb.WriteString("\n")
+		}
+	}
+	return strings.TrimSpace(sb.String())
+}
+
+// responseBodyWriter captures the HTTP response body for agent memory retain.
+type responseBodyWriter struct {
+	gin.ResponseWriter
+	body *strings.Builder
+}
+
+func (w *responseBodyWriter) Write(b []byte) (int, error) {
+	w.body.Write(b)
+	return w.ResponseWriter.Write(b)
+}
+
+func (w *responseBodyWriter) WriteString(s string) (int, error) {
+	w.body.WriteString(s)
+	return w.ResponseWriter.WriteString(s)
+}
+
 func relayHandler(c *gin.Context, info *relaycommon.RelayInfo) *types.NewAPIError {
 	var err *types.NewAPIError
 	switch info.RelayMode {
@@ -213,6 +244,28 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 		}
 		c.Request.Body = io.NopCloser(bodyStorage)
 
+		// --- Agent Memory: Auto-recall before request ---
+		if relayInfo.UserId > 0 && relayInfo.RelayMode == relayconstant.RelayModeChatCompletions {
+			// Build query from last user message for recall
+			if chatReq, ok := relayInfo.Request.(*dto.GeneralOpenAIRequest); ok {
+				for i := len(chatReq.Messages) - 1; i >= 0; i-- {
+					if chatReq.Messages[i].Role == "user" {
+						queryText := extractTextFromMessage(chatReq.Messages[i])
+						if queryText != "" {
+							snippet := service.AutoRecallBeforeRequest(relayInfo.UserId, queryText)
+							service.InjectRecallIntoRequest(relayInfo.Request, snippet)
+						}
+						break
+					}
+				}
+			}
+		}
+
+		// Wrap response writer to capture body for auto-retain
+		respBody := &strings.Builder{}
+		wrappedWriter := &responseBodyWriter{ResponseWriter: c.Writer, body: respBody}
+		c.Writer = wrappedWriter
+
 		switch relayFormat {
 		case types.RelayFormatOpenAIRealtime:
 			newAPIError = relay.WssHelper(c, relayInfo)
@@ -222,6 +275,11 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 			newAPIError = geminiRelayHandler(c, relayInfo)
 		default:
 			newAPIError = relayHandler(c, relayInfo)
+		}
+
+		// --- Agent Memory: Auto-retain after successful response ---
+		if newAPIError == nil && relayInfo.UserId > 0 && relayInfo.RelayMode == relayconstant.RelayModeChatCompletions {
+			service.AutoRetainAfterResponse(relayInfo.UserId, relayInfo.Request, []byte(respBody.String()))
 		}
 
 		if newAPIError == nil {
