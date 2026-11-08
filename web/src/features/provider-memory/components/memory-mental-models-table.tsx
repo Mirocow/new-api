@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ChevronDown, ChevronRight, Plus, Trash2 } from 'lucide-react'
+import { ChevronDown, ChevronRight, Pencil, Plus, Trash2 } from 'lucide-react'
 
 import { StaticDataTable } from '@/components/data-table'
 import { EmptyState } from '@/components/empty-state'
@@ -91,6 +91,8 @@ export function MemoryMentalModelsTable() {
   // Provider (channel type) — narrows the model list. Empty = all providers.
   const [selectedProvider, setSelectedProvider] = useState<string>('')
   const [autoRefresh, setAutoRefresh] = useState(true)
+  // Fields preserved from the record being edited, so saving does not wipe them
+  const [editing, setEditing] = useState<ProviderMentalModel | null>(null)
 
   const providers = useMemo(() => channelsData?.providers ?? [], [channelsData?.providers])
   const allModels = useMemo(() => channelsData?.models ?? [], [channelsData?.models])
@@ -133,17 +135,26 @@ export function MemoryMentalModelsTable() {
   function handleSave() {
     upsert.mutate(
       {
-        source_query: sourceQuery,
-        scope_model: scopeModel,
-        content: '',
-        payload: '[]',
-        tags: '',
-        auto_refresh: autoRefresh,
+        source_query: sourceQuery.trim(),
+        scope_model: scopeModel.trim(),
+        content: editing?.content ?? '',
+        payload: editing?.payload ?? '[]',
+        tags: editing?.tags ?? '',
+        auto_refresh: autoRefresh === true,
       },
       {
         onSuccess: () => setDialogOpen(false),
       }
     )
+  }
+
+  function handleEdit(m: ProviderMentalModel) {
+    setEditing(m)
+    setSourceQuery(m.source_query)
+    setScopeModel(m.scope_model === '*' ? '*' : m.scope_model)
+    setSelectedProvider('')
+    setAutoRefresh(m.auto_refresh === true)
+    setDialogOpen(true)
   }
 
   function handleDelete(sq: string, sm: string) {
@@ -155,6 +166,7 @@ export function MemoryMentalModelsTable() {
     setScopeModel('')
     setSelectedProvider('')
     setAutoRefresh(true)
+    setEditing(null)
   }
 
   function handleDialogOpenChange(open: boolean) {
@@ -204,7 +216,9 @@ export function MemoryMentalModelsTable() {
           </DialogTrigger>
           <DialogContent className='sm:max-w-[520px]'>
             <DialogHeader>
-              <DialogTitle>{t('Create / Update Mental Model')}</DialogTitle>
+              <DialogTitle>
+                {editing ? t('Edit Mental Model') : t('Create Mental Model')}
+              </DialogTitle>
               <DialogDescription>
                 {t(
                   'Pick what to optimize for and which model it applies to. The gateway remembers the best channel for it and selects it automatically.'
@@ -290,7 +304,7 @@ export function MemoryMentalModelsTable() {
                 <Switch
                   id='mm-autorefresh'
                   checked={autoRefresh}
-                  onCheckedChange={setAutoRefresh}
+                  onCheckedChange={(value) => setAutoRefresh(value === true)}
                 />
                 <Label htmlFor='mm-autorefresh'>{t('Keep this answer up to date automatically')}</Label>
               </div>
@@ -344,6 +358,7 @@ export function MemoryMentalModelsTable() {
                     )
                   }
                   onDelete={() => handleDelete(m.source_query, m.scope_model)}
+                  onEdit={() => handleEdit(m)}
                 />
               ))}
             </TableBody>
@@ -359,11 +374,13 @@ function MentalModelRow({
   expanded,
   onToggle,
   onDelete,
+  onEdit,
 }: {
   m: ProviderMentalModel
   expanded: boolean
   onToggle: () => void
   onDelete: () => void
+  onEdit: () => void
 }) {
   const { t, i18n } = useTranslation()
   return (
@@ -407,14 +424,32 @@ function MentalModelRow({
           )}
         </TableCell>
         <TableCell className='px-4 py-2.5'>
-          <Button
-            size='icon'
-            variant='ghost'
-            className='text-muted-foreground hover:text-destructive size-7'
-            onClick={onDelete}
-          >
-            <Trash2 className='size-3.5' aria-hidden='true' />
-          </Button>
+          <div className='flex items-center gap-1'>
+            <Button
+              size='icon'
+              variant='ghost'
+              className='text-muted-foreground hover:text-primary size-7'
+              onClick={(e) => {
+                e.stopPropagation()
+                onEdit()
+              }}
+              aria-label={t('Edit')}
+            >
+              <Pencil className='size-3.5' aria-hidden='true' />
+            </Button>
+            <Button
+              size='icon'
+              variant='ghost'
+              className='text-muted-foreground hover:text-destructive size-7'
+              onClick={(e) => {
+                e.stopPropagation()
+                onDelete()
+              }}
+              aria-label={t('Delete')}
+            >
+              <Trash2 className='size-3.5' aria-hidden='true' />
+            </Button>
+          </div>
         </TableCell>
       </TableRow>
       {expanded && (
