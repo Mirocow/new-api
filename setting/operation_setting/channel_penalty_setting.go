@@ -14,7 +14,7 @@ type ChannelPenaltySetting struct {
 }
 
 var channelPenaltySetting = ChannelPenaltySetting{
-	Enabled:           false,
+	Enabled:           true,
 	StatusCodes:       defaultChannelPenaltyStatusCodes,
 	DurationSeconds:   60,
 	MaxPenalties:      3,
