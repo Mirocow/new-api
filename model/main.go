@@ -379,6 +379,11 @@ func migrateDB() error {
 		&ProviderMemoryFact{},
 		&ProviderObservation{},
 		&ProviderMentalModel{},
+		&MemoryBank{},
+		&MemoryFact{},
+		&MemoryObservation{},
+		&MemoryMentalModel{},
+		&KnowledgePage{},
 	)
 	if err != nil {
 		return err

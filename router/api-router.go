@@ -469,7 +469,28 @@ func SetApiRouter(router *gin.Engine) {
 			providerMemoryRoute.GET("/routing-hint/success", controller.GetRoutingHintBySuccess)
 		}
 
-		// Dashboard WebSocket routes
+		// Agent Memory (Hindsight-style long-term memory for AI agents)
+	agentMemoryRoute := apiRouter.Group("/agent-memory")
+	agentMemoryRoute.Use(middleware.UserAuth())
+	{
+		agentMemoryRoute.GET("/banks", controller.ListMemoryBanks)
+		agentMemoryRoute.POST("/banks", middleware.AdminAuth(), controller.CreateMemoryBank)
+		agentMemoryRoute.GET("/banks/:id", controller.GetMemoryBank)
+		agentMemoryRoute.PUT("/banks/:id", middleware.AdminAuth(), controller.UpdateMemoryBank)
+		agentMemoryRoute.DELETE("/banks/:id", middleware.AdminAuth(), controller.DeleteMemoryBank)
+
+		agentMemoryRoute.POST("/retain", controller.RetainMemory)
+		agentMemoryRoute.POST("/recall", controller.RecallMemory)
+		agentMemoryRoute.POST("/reflect", controller.ReflectMemory)
+		agentMemoryRoute.POST("/consolidate", controller.ConsolidateMemory)
+
+		agentMemoryRoute.GET("/knowledge-pages", controller.ListKnowledgePages)
+		agentMemoryRoute.POST("/knowledge-pages", controller.CreateKnowledgePage)
+		agentMemoryRoute.PUT("/knowledge-pages/:id", controller.UpdateKnowledgePage)
+		agentMemoryRoute.DELETE("/knowledge-pages/:id", controller.DeleteKnowledgePage)
+	}
+
+// Dashboard WebSocket routes
 		dashboardWSHandler := wsmanager.NewDashboardWSHandler()
 		apiRouter.GET("/ws/dashboard", middleware.UserAuth(), dashboardWSHandler.HandleWS)
 	}

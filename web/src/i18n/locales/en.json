@@ -7506,6 +7506,15 @@
     "Created at": "Created at",
     "Entities (graph nodes)": "Entities (graph nodes)",
     "Keywords (BM25-lite index)": "Keywords (BM25-lite index)",
-    "Raw metrics JSON": "Raw metrics JSON"
+    "Raw metrics JSON": "Raw metrics JSON",
+    "Agent Memory": "Agent Memory",
+    "Memory Banks": "Memory Banks",
+    "Create Bank": "Create Bank",
+    "No memory banks yet. Create one to get started.": "No memory banks yet. Create one to get started.",
+    "Global agent": "Global agent",
+    "Quick Actions": "Quick Actions",
+    "Retain (coming soon)": "Retain (coming soon)",
+    "Recall (coming soon)": "Recall (coming soon)",
+    "Reflect (coming soon)": "Reflect (coming soon)"
   }
 }

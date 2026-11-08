@@ -166,6 +166,24 @@ func main() {
 		go service.StartProviderMemoryConsolidationLoop()
 	}
 
+	// Agent memory (Hindsight-style long-term memory for AI agents)
+	agentMemoryEnabled := common.GetEnvOrDefaultBool("AGENT_MEMORY_ENABLED", false)
+	if agentMemoryEnabled {
+		common.SysLog(common.LogText("agent memory enabled"))
+		service.ConfigureAgentMemory(true)
+		go func() {
+			for {
+				banks, err := service.ListMemoryBanks(0, "")
+				if err == nil {
+					for _, bank := range banks {
+						_ = service.ConsolidateMemory(bank.Id)
+					}
+				}
+				time.Sleep(time.Duration(common.GetEnvOrDefault("AGENT_MEMORY_CONSOLIDATE_INTERVAL", 3600)) * time.Second)
+			}
+		}()
+	}
+
 	if os.Getenv("BATCH_UPDATE_ENABLED") == "true" {
 		common.BatchUpdateEnabled = true
 		common.SysLog(common.LogText("batch update enabled with interval %ss", strconv.Itoa(common.BatchUpdateInterval)))
