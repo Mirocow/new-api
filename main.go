@@ -171,6 +171,7 @@ func main() {
 	if agentMemoryEnabled {
 		common.SysLog(common.LogText("agent memory enabled"))
 		service.ConfigureAgentMemory(true)
+	service.InitAgentMemoryLLM()
 		go func() {
 			for {
 				banks, err := service.ListMemoryBanks(0, "")
