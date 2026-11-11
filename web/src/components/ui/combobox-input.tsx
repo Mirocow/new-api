@@ -21,6 +21,7 @@ import * as React from 'react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 
+import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 
@@ -30,6 +31,10 @@ export type ComboboxInputOption = {
   icon?: React.ReactNode
   disabled?: boolean
   description?: string
+  badge?: {
+    label: string
+    variant: 'default' | 'success' | 'warning' | 'destructive' | 'outline'
+  }
 }
 
 interface ComboboxInputProps {
@@ -333,7 +338,20 @@ export function ComboboxInput({
                       )}
                     />
                     {option.icon && <span aria-hidden>{option.icon}</span>}
-                    <span className='truncate'>{option.label}</span>
+                    <div className='flex-1 min-w-0 flex flex-col'>
+                      <span className='truncate'>{option.label}</span>
+                      {option.description && (
+                        <span className='truncate text-xs text-muted-foreground'>{option.description}</span>
+                      )}
+                    </div>
+                    {option.badge && (
+                      <Badge
+                        variant={option.badge.variant}
+                        className='shrink-0 text-xs'
+                      >
+                        {option.badge.label}
+                      </Badge>
+                    )}
                   </li>
                 ))}
               </ul>
