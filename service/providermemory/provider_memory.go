@@ -639,6 +639,127 @@ func parseFloatToken(s *string) float64 {
 	return v
 }
 
+// ModelSuitability holds suitability and preference info for a model + source query.
+type ModelSuitability struct {
+	SourceQuery        string
+	ScopeModel         string
+	FactCount          int64
+	ObservationCount   int64
+	HasMentalModel     bool
+	BestChannel        *RoutingHint
+	SuitabilityLevel   string
+	Explanation        string
+}
+
+// GetModelSuitability returns suitability and preference info for a model
+// and source query. Used by the admin UI to show hints when creating/editing
+// mental models.
+func GetModelSuitability(sourceQuery, scopeModel string) (*ModelSuitability, error) {
+	if !Enabled() {
+		return &ModelSuitability{
+			SourceQuery:       sourceQuery,
+			ScopeModel:        scopeModel,
+			SuitabilityLevel:  "none",
+			Explanation:       "Provider memory is disabled",
+		}, nil
+	}
+
+	// Count facts for this model
+	factCount, err := model.CountFactsForModel(scopeModel)
+	if err != nil {
+		factCount = 0
+	}
+
+	// Count active observations for this model
+	obsCount, err := model.CountActiveObservationsForModel(scopeModel)
+	if err != nil {
+		obsCount = 0
+	}
+
+	// Check if mental model exists
+	hasMM := false
+	mm, err := model.GetProviderMentalModel(sourceQuery, scopeModel)
+	if err == nil && mm != nil {
+		hasMM = true
+	}
+
+	// Get best channel from routing hint (uses mental model if available,
+	// otherwise falls back to global scope)
+	var bestHint *RoutingHint
+	switch classifyQuery(sourceQuery) {
+	case "best_latency":
+		bestHint, _ = BestChannelByLatency(scopeModel)
+	case "best_success":
+		bestHint, _ = BestChannelBySuccess(scopeModel)
+	}
+
+	// Determine suitability level based on fact count and observations
+	level := "none"
+	explanation := ""
+	minFacts := minFactsToConsolidate
+	if factCount == 0 {
+		level = "none"
+		explanation = "No performance data collected yet for this model"
+	} else if factCount < minFacts {
+		level = "low"
+		explanation = fmt.Sprintf("Only %d samples (need %d for reliable ranking)", factCount, minFacts)
+	} else if factCount < minFacts*3 {
+		level = "medium"
+		explanation = fmt.Sprintf("%d samples — ranking available but may change with more data", factCount)
+	} else {
+		level = "high"
+		explanation = fmt.Sprintf("%d samples — reliable ranking", factCount)
+	}
+
+	if hasMM {
+		explanation += ". Mental model exists and is "
+		if bestHint != nil && len(bestHint.Rankings) > 0 {
+			explanation += "actively used for routing"
+		} else {
+			explanation += "available but rankings empty"
+		}
+	}
+
+	return &ModelSuitability{
+		SourceQuery:        sourceQuery,
+		ScopeModel:         scopeModel,
+		FactCount:          factCount,
+		ObservationCount:   obsCount,
+		HasMentalModel:     hasMM,
+		BestChannel:        bestHint,
+		SuitabilityLevel:   level,
+		Explanation:        explanation,
+	}, nil
+}
+
+// GetBulkModelSuitability returns suitability info for all models that have
+// at least one fact, for a given source query. Used by the admin UI to show
+// suitability badges in the model dropdown.
+func GetBulkModelSuitability(sourceQuery string) (map[string]*ModelSuitability, error) {
+	if !Enabled() {
+		return nil, nil
+	}
+
+	// Get all distinct model names that have facts
+	var modelNames []string
+	err := model.DB.Model(&model.ProviderMemoryFact{}).
+		Select("DISTINCT model_name").
+		Pluck("model_name", &modelNames).Error
+	if err != nil {
+		return nil, err
+	}
+
+	result := make(map[string]*ModelSuitability, len(modelNames))
+	for _, name := range modelNames {
+		suitability, err := GetModelSuitability(sourceQuery, name)
+		if err != nil {
+			continue
+		}
+		result[name] = suitability
+	}
+	return result, nil
+}
+
 // --- Background runner ---
 
 // StartConsolidationLoop runs the consolidation step on a schedule until ctx

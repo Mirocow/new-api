@@ -23,7 +23,9 @@ import { useTranslation } from 'react-i18next'
 import {
   consolidateProviderFacts,
   deleteProviderMentalModel,
+  getBulkModelSuitability,
   getChannelsForMentalModel,
+  getModelSuitability,
   getProviderMemoryConfig,
   getProviderMemoryStats,
   listProviderMemoryFacts,
@@ -32,6 +34,7 @@ import {
   pruneOldProviderFacts,
   updateProviderMemoryConfig,
   upsertProviderMentalModel,
+  type ModelSuitability,
   type ProviderMemoryConfig,
 } from './api'
 
@@ -172,5 +175,42 @@ export function useChannelsForMentalModel() {
     queryKey: CHANNELS_MM_KEY,
     queryFn: getChannelsForMentalModel,
     staleTime: 5 * 60 * 1000, // 5 minutes
+  })
+}
+
+const SUITABILITY_KEY = ['provider-memory', 'model-suitability'] as const
+
+/**
+ * Fetch suitability and preference info for a model + source query.
+ * Used to show hints in the mental model creation/edit form.
+ */
+export function useModelSuitability(
+  sourceQuery: string,
+  scopeModel: string,
+  enabled = true
+) {
+  return useQuery<ModelSuitability>({
+    queryKey: [...SUITABILITY_KEY, sourceQuery, scopeModel],
+    queryFn: () => getModelSuitability(sourceQuery, scopeModel),
+    enabled: enabled && sourceQuery !== '' && scopeModel !== '',
+    staleTime: 30_000, // 30 seconds
+  })
+}
+
+const BULK_SUITABILITY_KEY = ['provider-memory', 'model-suitability-bulk'] as const
+
+/**
+ * Fetch suitability info for all models for a given source query.
+ * Used to show suitability badges in the model dropdown.
+ */
+export function useBulkModelSuitability(
+  sourceQuery: string,
+  enabled = true
+) {
+  return useQuery<Record<string, ModelSuitability>>({
+    queryKey: [...BULK_SUITABILITY_KEY, sourceQuery],
+    queryFn: () => getBulkModelSuitability(sourceQuery),
+    enabled: enabled && sourceQuery !== '',
+    staleTime: 30_000, // 30 seconds
   })
 }

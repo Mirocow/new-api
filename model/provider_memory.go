@@ -338,3 +338,23 @@ func PruneOldFacts(before int64) (int64, error) {
 	res := DB.Where("retained_at < ?", before).Delete(&ProviderMemoryFact{})
 	return res.RowsAffected, res.Error
 }
+
+// CountFactsForModel returns the total number of facts for a given model name
+// across all channels.
+func CountFactsForModel(modelName string) (int64, error) {
+	var n int64
+	err := DB.Model(&ProviderMemoryFact{}).
+		Where("model_name = ?", modelName).
+		Count(&n).Error
+	return n, err
+}
+
+// CountActiveObservationsForModel returns the number of active (non-superseded)
+// observations for a given model name across all channels.
+func CountActiveObservationsForModel(modelName string) (int64, error) {
+	var n int64
+	err := DB.Model(&ProviderObservation{}).
+		Where("model_name = ? AND superseded_by IS NULL", modelName).
+		Count(&n).Error
+	return n, err
+}

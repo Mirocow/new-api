@@ -467,30 +467,43 @@ func SetApiRouter(router *gin.Engine) {
 
 			providerMemoryRoute.GET("/routing-hint/latency", controller.GetRoutingHintByLatency)
 			providerMemoryRoute.GET("/routing-hint/success", controller.GetRoutingHintBySuccess)
+			providerMemoryRoute.GET("/model-suitability", controller.GetModelSuitability)
+			providerMemoryRoute.GET("/model-suitability-bulk", controller.GetBulkModelSuitability)
 		}
 
 		// Agent Memory (Hindsight-style long-term memory for AI agents)
-	agentMemoryRoute := apiRouter.Group("/agent-memory")
-	agentMemoryRoute.Use(middleware.UserAuth())
-	{
-		agentMemoryRoute.GET("/banks", controller.ListMemoryBanks)
-		agentMemoryRoute.POST("/banks", middleware.AdminAuth(), controller.CreateMemoryBank)
-		agentMemoryRoute.GET("/banks/:id", controller.GetMemoryBank)
-		agentMemoryRoute.PUT("/banks/:id", middleware.AdminAuth(), controller.UpdateMemoryBank)
-		agentMemoryRoute.DELETE("/banks/:id", middleware.AdminAuth(), controller.DeleteMemoryBank)
+		agentMemoryRoute := apiRouter.Group("/agent-memory")
+		agentMemoryRoute.Use(middleware.UserAuth())
+		{
+			agentMemoryRoute.GET("/banks", controller.ListMemoryBanks)
+			agentMemoryRoute.POST("/banks", middleware.AdminAuth(), controller.CreateMemoryBank)
+			agentMemoryRoute.GET("/banks/:id", controller.GetMemoryBank)
+			agentMemoryRoute.PUT("/banks/:id", middleware.AdminAuth(), controller.UpdateMemoryBank)
+			agentMemoryRoute.DELETE("/banks/:id", middleware.AdminAuth(), controller.DeleteMemoryBank)
 
-		agentMemoryRoute.POST("/retain", controller.RetainMemory)
-		agentMemoryRoute.POST("/recall", controller.RecallMemory)
-		agentMemoryRoute.POST("/reflect", controller.ReflectMemory)
-		agentMemoryRoute.POST("/consolidate", controller.ConsolidateMemory)
+			agentMemoryRoute.POST("/retain", controller.RetainMemory)
+			agentMemoryRoute.POST("/recall", controller.RecallMemory)
+			agentMemoryRoute.POST("/reflect", controller.ReflectMemory)
+			agentMemoryRoute.POST("/consolidate", controller.ConsolidateMemory)
 
-		agentMemoryRoute.GET("/knowledge-pages", controller.ListKnowledgePages)
-		agentMemoryRoute.POST("/knowledge-pages", controller.CreateKnowledgePage)
-		agentMemoryRoute.PUT("/knowledge-pages/:id", controller.UpdateKnowledgePage)
-		agentMemoryRoute.DELETE("/knowledge-pages/:id", controller.DeleteKnowledgePage)
-	}
+			// Mental Model triggers
+			agentMemoryRoute.POST("/mental-models/with-trigger", controller.CreateMentalModelWithTrigger)
+			agentMemoryRoute.POST("/mental-models/:id/refresh", controller.RefreshMentalModel)
 
-// Dashboard WebSocket routes
+			// Knowledge Page triggers
+			agentMemoryRoute.POST("/knowledge-pages/with-trigger", controller.CreateKnowledgePageWithTrigger)
+			agentMemoryRoute.POST("/knowledge-pages/:id/refresh", controller.RefreshKnowledgePage)
+
+			agentMemoryRoute.GET("/knowledge-pages", controller.ListKnowledgePages)
+			agentMemoryRoute.POST("/knowledge-pages", controller.CreateKnowledgePage)
+			agentMemoryRoute.PUT("/knowledge-pages/:id", controller.UpdateKnowledgePage)
+			agentMemoryRoute.DELETE("/knowledge-pages/:id", controller.DeleteKnowledgePage)
+
+			// Trigger processing
+			agentMemoryRoute.POST("/triggers/process-scheduled", controller.ProcessScheduledTriggers)
+		}
+
+		// Dashboard WebSocket routes
 		dashboardWSHandler := wsmanager.NewDashboardWSHandler()
 		apiRouter.GET("/ws/dashboard", middleware.UserAuth(), dashboardWSHandler.HandleWS)
 	}

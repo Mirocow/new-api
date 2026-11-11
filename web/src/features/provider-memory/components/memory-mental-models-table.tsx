@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { ChevronDown, ChevronRight, Pencil, Plus, Trash2 } from 'lucide-react'
+import { ChevronDown, ChevronRight, Pencil, Plus, Star, Trash2 } from 'lucide-react'
 
 import { StaticDataTable } from '@/components/data-table'
 import { EmptyState } from '@/components/empty-state'
@@ -48,12 +48,14 @@ import { toIntlLocale } from '@/i18n/languages'
 import { formatTimestampRelative } from '@/lib/format'
 
 import {
+  useBulkModelSuitability,
   useChannelsForMentalModel,
   useDeleteProviderMentalModel,
+  useModelSuitability,
   useProviderMentalModels,
   useUpsertProviderMentalModel,
 } from '../hooks'
-import type { ProviderMentalModel } from '../api'
+import type { ModelSuitability, ProviderMentalModel } from '../api'
 
 // Source query intents recognized by the backend consolidation job
 // (see classifyQuery in service/providermemory). The canonical strings below
@@ -94,6 +96,9 @@ export function MemoryMentalModelsTable() {
   // Fields preserved from the record being edited, so saving does not wipe them
   const [editing, setEditing] = useState<ProviderMentalModel | null>(null)
 
+  const suitability = useModelSuitability(sourceQuery, scopeModel, dialogOpen)
+const bulkSuitability = useBulkModelSuitability(sourceQuery, dialogOpen)
+
   const providers = useMemo(() => channelsData?.providers ?? [], [channelsData?.providers])
   const allModels = useMemo(() => channelsData?.models ?? [], [channelsData?.models])
 
@@ -111,8 +116,21 @@ export function MemoryMentalModelsTable() {
     }))
   }, [providers, t])
 
-  // Model suggestions depend on the selected provider
+  // Model suggestions depend on the selected provider, enriched with suitability data
   const modelOptions = useMemo<ComboboxInputOption[]>(() => {
+    const bulkData = bulkSuitability.data ?? {}
+    
+    // Sort models by suitability level (high first), then by label
+    const sortedModels = [...scopedModels].sort((a, b) => {
+      const suitA = bulkData[a.value]
+      const suitB = bulkData[b.value]
+      const levelOrder = { high: 0, medium: 1, low: 2, none: 3 }
+      const levelA = suitA ? levelOrder[suitA.suitability_level] : 4
+      const levelB = suitB ? levelOrder[suitB.suitability_level] : 4
+      if (levelA !== levelB) return levelA - levelB
+      return a.label.localeCompare(b.label)
+    })
+
     const options: ComboboxInputOption[] = [
       {
         value: '*',
@@ -120,15 +138,41 @@ export function MemoryMentalModelsTable() {
         description: t('Applies to every model'),
       },
     ]
-    for (const m of scopedModels) {
+    for (const m of sortedModels) {
+      const suit = bulkData[m.value]
+      let description = m.isAlias ? t('Alias') : undefined
+      let badge: ComboboxInputOption['badge'] = undefined
+      let isPreferred = false
+      if (suit) {
+        const parts: string[] = []
+        if (suit.fact_count > 0) parts.push(t('{{count}} samples', { count: suit.fact_count }))
+        if (suit.observation_count > 0) parts.push(t('{{count}} observations', { count: suit.observation_count }))
+        if (suit.has_mental_model) parts.push(t('Mental model exists'))
+        description = parts.length > 0 ? parts.join(' · ') : undefined
+        badge = {
+          label: t(`suitability.${suit.suitability_level}`),
+          variant:
+            suit.suitability_level === 'high'
+              ? 'success'
+              : suit.suitability_level === 'medium'
+              ? 'warning'
+              : suit.suitability_level === 'low'
+              ? 'destructive'
+              : 'outline',
+        }
+        // Mark as preferred if it has high suitability and a mental model exists
+        isPreferred = suit.suitability_level === 'high' && suit.has_mental_model
+      }
       options.push({
         value: m.value,
         label: m.label,
-        description: m.isAlias ? t('Alias') : undefined,
+        description,
+        badge,
+        ...(isPreferred ? { icon: <Star className='text-yellow-500' aria-hidden /> } : {}),
       })
     }
     return options
-  }, [scopedModels, t])
+  }, [scopedModels, t, bulkSuitability.data])
 
   const rows = data?.data ?? []
 
@@ -299,6 +343,86 @@ export function MemoryMentalModelsTable() {
                       )}
                 </p>
               </div>
+
+              {/* Suitability / preference hint */}
+              {suitability.data && (
+                <div
+                  className={
+                    `rounded-lg p-3 border text-sm transition-colors `
+                    + (
+                      suitability.data.suitability_level === 'high'
+                        ? 'border-emerald-500/30 bg-emerald-500/5'
+                        : suitability.data.suitability_level === 'medium'
+                        ? 'border-amber-500/30 bg-amber-500/5'
+                        : suitability.data.suitability_level === 'low'
+                        ? 'border-orange-500/30 bg-orange-500/5'
+                        : 'border-muted-foreground/20 bg-muted/30'
+                    )
+                  }
+                >
+                  <div className='flex items-start gap-2'>
+                    <span className='shrink-0 mt-0.5 text-lg'>
+                      {suitability.data.suitability_level === 'high' && '✅'}
+                      {suitability.data.suitability_level === 'medium' && '⚠️'}
+                      {suitability.data.suitability_level === 'low' && '🔶'}
+                      {suitability.data.suitability_level === 'none' && '❌'}
+                    </span>
+                    <div className='flex-1 min-w-0'>
+                      <div className='font-medium'>{t('Suitability')}:{' '}
+                        <span
+                          className={
+                            suitability.data.suitability_level === 'high'
+                              ? 'text-emerald-600'
+                              : suitability.data.suitability_level === 'medium'
+                              ? 'text-amber-600'
+                              : suitability.data.suitability_level === 'low'
+                              ? 'text-orange-600'
+                              : 'text-muted-foreground'
+                          }
+                        >
+                          {t(
+                            `suitability.${suitability.data.suitability_level}`
+                          )}
+                        </span>
+                      </div>
+                      <div className='text-muted-foreground text-xs mt-1'>
+                        {suitability.data.explanation}
+                      </div>
+                      {suitability.data.best_channel &&
+                        suitability.data.best_channel.Rankings.length > 0 && (
+                          <div className='mt-2 text-xs text-muted-foreground'>
+                            {t('Current best channel')}:{' '}
+                            {suitability.data.best_channel.Rankings.map((r, i) =>
+                              i < 3
+                                ? (
+                                    <span
+                                      key={r.ChannelId}
+                                      className='font-mono mr-1'
+                                    >
+                                      #{r.ChannelId} {r.ModelName} ({r.Score.toFixed(4)})
+                                    </span>
+                                  )
+                                : null
+                            )}
+                            {suitability.data.best_channel.Rankings.length > 3 && (
+                              <span>…</span>
+                            )}
+                          </div>
+                        )}
+                      {suitability.data.has_mental_model && (
+                        <div className='mt-2 text-xs text-emerald-600'>
+                          ✅ {t('Mental model already exists and is used for routing')}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+              {suitability.isLoading && (
+                <div className='rounded-lg p-3 border border-muted-foreground/20 bg-muted/30 text-sm text-muted-foreground'>
+                  {t('Checking suitability…')}
+                </div>
+              )}
 
               <div className='flex items-center gap-2'>
                 <Switch

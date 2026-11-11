@@ -340,3 +340,38 @@ func GetProviderMemoryStats(c *gin.Context) {
 		"enabled":             service.ProviderMemoryEnabled(),
 	})
 }
+
+// GetModelSuitability returns suitability and preference info for a model + source query.
+func GetModelSuitability(c *gin.Context) {
+	sourceQuery := c.Query("source_query")
+	scopeModel := c.Query("scope_model")
+	if sourceQuery == "" || scopeModel == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "source_query and scope_model required"})
+		return
+	}
+
+	suitability, err := service.GetModelSuitability(sourceQuery, scopeModel)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, suitability)
+}
+
+// GetBulkModelSuitability returns suitability info for all models for a given source query.
+func GetBulkModelSuitability(c *gin.Context) {
+	sourceQuery := c.Query("source_query")
+	if sourceQuery == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "source_query required"})
+		return
+	}
+
+	suitability, err := service.GetBulkModelSuitability(sourceQuery)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, suitability)
+}

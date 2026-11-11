@@ -115,10 +115,11 @@ func AutoRetainAfterResponse(userId int, request any, responseBody []byte) {
 	userText := extractUserTextsFromRequest(request)
 	if userText != "" {
 		_, err := RetainMemory(MemoryRetainRequest{
-			BankId:   bankId,
-			Text:     userText,
-			Role:     "user",
-			Language: "", // auto-detect
+			Items: []MemoryRetainItem{{
+				Content: Content{String: userText},
+				Metadata: map[string]string{"bank_id": fmt.Sprintf("%d", bankId)},
+				Tags:     []string{fmt.Sprintf("bank:%d", bankId), "user", "chat"},
+			}},
 		})
 		if err != nil {
 			common.SysLog(common.LogText("agent memory: retain user text failed: %s", err.Error()))
@@ -129,10 +130,11 @@ func AutoRetainAfterResponse(userId int, request any, responseBody []byte) {
 	assistantText := extractAssistantTextsFromResponse(responseBody)
 	if assistantText != "" {
 		_, err := RetainMemory(MemoryRetainRequest{
-			BankId:   bankId,
-			Text:     assistantText,
-			Role:     "assistant",
-			Language: "",
+			Items: []MemoryRetainItem{{
+				Content: Content{String: assistantText},
+				Metadata: map[string]string{"bank_id": fmt.Sprintf("%d", bankId)},
+				Tags:     []string{fmt.Sprintf("bank:%d", bankId), "assistant", "chat"},
+			}},
 		})
 		if err != nil {
 			common.SysLog(common.LogText("agent memory: retain assistant text failed: %s", err.Error()))
@@ -158,10 +160,10 @@ func AutoRecallBeforeRequest(userId int, queryText string) string {
 	}
 
 	recallResp, err := RecallMemory(MemoryRecallRequest{
-		BankId:   bankId,
-		Query:    queryText,
-		Limit:    5,
-		Language: "",
+		BankId: bankId,
+		Query:  queryText,
+		Budget: &Budget{MaxFacts: 5, MaxObservations: 5},
+		Types:  []string{"fact", "observation"},
 	})
 	if err != nil {
 		common.SysLog(common.LogText("agent memory: recall failed: %s", err.Error()))

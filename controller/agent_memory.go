@@ -248,31 +248,205 @@ func ReflectMemory(c *gin.Context) {
 
 // ConsolidateMemory godoc
 // @Summary Consolidate memory observations
-// @Description Run observation consolidation for a memory bank
+// @Description Run observation consolidation for a memory bank with optional scope patterns
 // @Tags agent-memory
 // @Accept json
 // @Produce json
-// @Param bank_id query int true "bank ID"
+// @Param request body object true "consolidate request"
 // @Success 200 {object} map[string]interface{}
 // @Router /api/memory/consolidate [post]
 func ConsolidateMemory(c *gin.Context) {
-	bankIdStr := c.Query("bank_id")
-	if bankIdStr == "" {
-		common.ApiErrorStatus(c, http.StatusBadRequest, common.NewMessage("Missing bank_id"))
+	var req struct {
+		BankId       int64                              `json:"bank_id" binding:"required"`
+		ScopePatterns []service.ConsolidationScopePattern `json:"scope_patterns"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.ApiErrorStatus(c, http.StatusBadRequest, common.NewMessage("Invalid parameters"))
 		return
 	}
-	bankId, err := strconv.ParseInt(bankIdStr, 10, 64)
-	if err != nil {
-		common.ApiErrorStatus(c, http.StatusBadRequest, common.NewMessage("Invalid bank_id"))
-		return
-	}
-	if err := service.ConsolidateMemory(bankId); err != nil {
+	if err := service.ConsolidateMemory(req.BankId, req.ScopePatterns); err != nil {
 		common.ApiError(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "Consolidation complete",
+	})
+}
+
+// RefreshMentalModel godoc
+// @Summary Refresh a mental model
+// @Description Manually trigger a refresh of a mental model
+// @Tags agent-memory
+// @Accept json
+// @Produce json
+// @Param id path int true "mental model ID"
+// @Success 200 {object} map[string]interface{}
+// @Router /api/memory/mental-models/{id}/refresh [post]
+func RefreshMentalModel(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		common.ApiErrorStatus(c, http.StatusBadRequest, common.NewMessage("Invalid mental model ID"))
+		return
+	}
+	// Get the mental model
+	var mm model.MemoryMentalModel
+	if err := model.DB.First(&mm, id).Error; err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	if err := service.RefreshMentalModel(mm.BankId, &mm); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Mental model refreshed",
+	})
+}
+
+// RefreshKnowledgePage godoc
+// @Summary Refresh a knowledge page
+// @Description Manually trigger a refresh of a knowledge page
+// @Tags agent-memory
+// @Accept json
+// @Produce json
+// @Param id path int true "page ID"
+// @Success 200 {object} map[string]interface{}
+// @Router /api/memory/knowledge-pages/{id}/refresh [post]
+func RefreshKnowledgePage(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		common.ApiErrorStatus(c, http.StatusBadRequest, common.NewMessage("Invalid page ID"))
+		return
+	}
+	var page model.KnowledgePage
+	if err := model.DB.First(&page, id).Error; err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	if err := service.RefreshKnowledgePage(page.BankId, &page); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Knowledge page refreshed",
+	})
+}
+
+// CreateMentalModelWithTrigger godoc
+// @Summary Create a mental model with trigger
+// @Description Create a mental model with trigger configuration
+// @Tags agent-memory
+// @Accept json
+// @Produce json
+// @Param request body object true "mental model config with trigger"
+// @Success 200 {object} map[string]interface{}
+// @Router /api/memory/mental-models/with-trigger [post]
+func CreateMentalModelWithTrigger(c *gin.Context) {
+	var req struct {
+		BankId            int64  `json:"bank_id" binding:"required"`
+		SourceQuery       string `json:"source_query" binding:"required"`
+		ScopeModel        string `json:"scope_model" binding:"required"`
+		Content           string `json:"content"`
+		Payload           string `json:"payload"`
+		Tags              string `json:"tags"`
+		AutoRefresh       bool   `json:"auto_refresh"`
+		MaxTokens         int    `json:"max_tokens"`
+		TriggerType       string `json:"trigger_type"` // scheduled|on_recall|on_retain|manual
+		TriggerCron       string `json:"trigger_cron"`
+		TriggerRecallTags string `json:"trigger_recall_tags"`
+		TriggerRetainTags string `json:"trigger_retain_tags"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.ApiErrorStatus(c, http.StatusBadRequest, common.NewMessage("Invalid parameters"))
+		return
+	}
+	triggerType := service.TriggerType(req.TriggerType)
+	if triggerType == "" {
+		triggerType = service.TriggerTypeManual
+	}
+	if req.MaxTokens == 0 {
+		req.MaxTokens = 2048
+	}
+	if err := service.CreateMentalModelWithTrigger(req.BankId, req.SourceQuery, req.ScopeModel,
+		req.Content, req.Payload, req.Tags, req.AutoRefresh, req.MaxTokens,
+		triggerType, req.TriggerCron, req.TriggerRecallTags, req.TriggerRetainTags); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Mental model created",
+	})
+}
+
+// CreateKnowledgePageWithTrigger godoc
+// @Summary Create a knowledge page with trigger
+// @Description Create a knowledge page with trigger configuration
+// @Tags agent-memory
+// @Accept json
+// @Produce json
+// @Param request body object true "knowledge page config with trigger"
+// @Success 200 {object} map[string]interface{}
+// @Router /api/memory/knowledge-pages/with-trigger [post]
+func CreateKnowledgePageWithTrigger(c *gin.Context) {
+	var req struct {
+		BankId      int64   `json:"bank_id" binding:"required"`
+		Title       string  `json:"title" binding:"required"`
+		Content     string  `json:"content" binding:"required"`
+		Path        string  `json:"path" binding:"required"`
+		ParentId    *int64  `json:"parent_id"`
+		SourceQuery string  `json:"source_query"`
+		Tags        string  `json:"tags"`
+		MaxTokens   int     `json:"max_tokens"`
+		TriggerType string  `json:"trigger_type"` // scheduled|on_recall|on_retain|manual
+		TriggerCron string  `json:"trigger_cron"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.ApiErrorStatus(c, http.StatusBadRequest, common.NewMessage("Invalid parameters"))
+		return
+	}
+	triggerType := service.TriggerType(req.TriggerType)
+	if triggerType == "" {
+		triggerType = service.TriggerTypeManual
+	}
+	if req.MaxTokens == 0 {
+		req.MaxTokens = 2048
+	}
+	page, err := service.CreateKnowledgePageWithTrigger(req.BankId, req.Title, req.Content,
+		req.Path, req.ParentId, req.SourceQuery, req.Tags, req.MaxTokens,
+		triggerType, req.TriggerCron)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Knowledge page created",
+		"data":    page,
+	})
+}
+
+// ProcessScheduledTriggers godoc
+// @Summary Process scheduled triggers
+// @Description Manually trigger processing of scheduled triggers for mental models and pages
+// @Tags agent-memory
+// @Accept json
+// @Produce json
+// @Success 200 {object} map[string]interface{}
+// @Router /api/memory/triggers/process-scheduled [post]
+func ProcessScheduledTriggers(c *gin.Context) {
+	if err := service.ProcessScheduledTriggers(); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Scheduled triggers processed",
 	})
 }
 

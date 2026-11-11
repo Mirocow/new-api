@@ -336,3 +336,40 @@ export async function getChannelsForMentalModel(): Promise<{
     ),
   }
 }
+
+// ============================================================================
+// Model Suitability (for mental model creation hints)
+// ============================================================================
+
+export interface ModelSuitability {
+  source_query: string
+  scope_model: string
+  fact_count: number
+  observation_count: number
+  has_mental_model: boolean
+  best_channel: RoutingHint | null
+  suitability_level: 'none' | 'low' | 'medium' | 'high'
+  explanation: string
+}
+
+export async function getModelSuitability(
+  sourceQuery: string,
+  scopeModel: string
+): Promise<ModelSuitability> {
+  const res = await api.get<ModelSuitability>(
+    '/api/provider-memory/model-suitability',
+    { params: { source_query: sourceQuery, scope_model: scopeModel } }
+  )
+  return res.data
+}
+
+export async function getBulkModelSuitability(
+  sourceQuery: string
+): Promise<Record<string, ModelSuitability>> {
+  const res = await api.get<Record<string, ModelSuitability>>(
+    '/api/provider-memory/model-suitability-bulk',
+    { params: { source_query: sourceQuery } }
+  )
+  return res.data
+}
+

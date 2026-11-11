@@ -177,7 +177,7 @@ func main() {
 				banks, err := service.ListMemoryBanks(0, "")
 				if err == nil {
 					for _, bank := range banks {
-						_ = service.ConsolidateMemory(bank.Id)
+						_ = service.ConsolidateMemory(bank.Id, nil)
 					}
 				}
 				time.Sleep(time.Duration(common.GetEnvOrDefault("AGENT_MEMORY_CONSOLIDATE_INTERVAL", 3600)) * time.Second)

@@ -170,3 +170,20 @@ func StartProviderMemoryConsolidationLoopWithContext(ctx context.Context) {
 	}()
 	providermemory.StartConsolidationLoop(stop)
 }
+
+// ModelSuitability is a re-export of the providermemory ModelSuitability type.
+type ModelSuitability = providermemory.ModelSuitability
+
+// GetModelSuitability returns suitability and preference info for a model
+// and source query. Used by the admin UI to show hints when creating/editing
+// mental models.
+func GetModelSuitability(sourceQuery, scopeModel string) (*ModelSuitability, error) {
+	return providermemory.GetModelSuitability(sourceQuery, scopeModel)
+}
+
+// GetBulkModelSuitability returns suitability info for all models that have
+// at least one fact, for a given source query. Used by the admin UI to show
+// suitability badges in the model dropdown.
+func GetBulkModelSuitability(sourceQuery string) (map[string]*ModelSuitability, error) {
+	return providermemory.GetBulkModelSuitability(sourceQuery)
+}
